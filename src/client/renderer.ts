@@ -1,5 +1,5 @@
 import { Application, Container, Graphics } from 'pixi.js';
-import { TERRAIN, type ResourceType } from '../sim/data';
+import { BALANCE, BUILDINGS, TERRAIN, type ResourceType } from '../sim/data';
 import { colOf, inBounds, neighborInDir, rowOf, toIndex } from '../sim/hex';
 import { Knowledge, type Building, type GameState } from '../sim/types';
 import type { GameController } from './controller';
@@ -77,6 +77,7 @@ export class MapRenderer {
   private overlay = new Graphics();
   private units = new Graphics();
   private drawnVersion = -1;
+  private drawnState: GameState | null = null;
   private hoverTile = -1;
   private destroyed = false;
 
@@ -175,6 +176,12 @@ export class MapRenderer {
 
   private draw() {
     const state = this.controller.state;
+    if (state !== this.drawnState) {
+      // A new game was started.
+      this.drawnState = state;
+      this.drawnVersion = -1;
+      this.centerOn(Math.floor(state.tiles.length / 2) + Math.floor(state.width / 2));
+    }
     if (state.mapVersion !== this.drawnVersion) {
       this.drawTiles(state);
       this.drawnVersion = state.mapVersion;
@@ -333,6 +340,11 @@ export class MapRenderer {
       g.rect(cx - 12, cy + 12, 24, 4).fill(0x222222);
       g.rect(cx - 12, cy + 12, 24 * b.progress, 4).fill(0x81c784);
     }
+    const maxHp = BUILDINGS[b.type].hp;
+    if (b.hp < maxHp) {
+      g.rect(cx - 12, cy + 17, 24, 3).fill(0x222222);
+      g.rect(cx - 12, cy + 17, 24 * Math.max(0, b.hp / maxHp), 3).fill(0xef5350);
+    }
   }
 
   private drawUnits(state: GameState) {
@@ -343,6 +355,14 @@ export class MapRenderer {
       if (b.owner !== me.id && me.visible[b.tile] !== 1) continue;
       this.drawBuilding(g, state, b);
     }
+    // Fighting: pulsing red rings.
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 120);
+    for (const t of state.combatTiles) {
+      if (me.visible[t] !== 1) continue;
+      const [cx, cy] = tileCenter(state, t);
+      g.circle(cx, cy, HEX_SIZE - 4).stroke({ color: 0xff1744, width: 2 + pulse * 2, alpha: 0.6 + 0.4 * pulse });
+    }
+    const group = new Set(this.controller.selection.group);
     const perTile = new Map<number, number>();
     for (const v of state.villagers) {
       if (v.owner !== me.id && me.visible[v.tile] !== 1) continue;
@@ -352,13 +372,18 @@ export class MapRenderer {
       x += (slot - 1) * 9;
       // Stand above buildings so both stay visible.
       y += state.buildings.some((b) => b.tile === v.tile) && v.path.length === 0 ? -15 : -2;
-      const selected = this.controller.selection.villager === v.id;
+      const selected = this.controller.selection.villager === v.id || group.has(v.id);
       if (selected) g.circle(x, y, 8.5).stroke({ color: 0xffffff, width: 2.5 });
       const color = hex(state.players[v.owner].color);
       if (v.soldier) {
         g.poly([x, y - 7, x + 7, y, x, y + 7, x - 7, y]).fill(color).stroke({ color: 0xffffff, width: 1.5 });
       } else {
         g.circle(x, y, v.level >= 2 ? 6.5 : 6).fill(color).stroke({ color: v.level >= 2 ? 0xffd54f : 0x1a1a1a, width: 1.5 });
+      }
+      const maxHp = BALANCE.combat.hp[String(v.level)];
+      if (v.hp < maxHp) {
+        g.rect(x - 7, y + 8, 14, 2.5).fill(0x222222);
+        g.rect(x - 7, y + 8, 14 * Math.max(0, v.hp / maxHp), 2.5).fill(0xef5350);
       }
       if (v.owner === me.id && v.loyalty < 60) {
         g.poly([x + 4, y - 13, x + 9, y - 5, x - 1, y - 5]).fill(v.loyalty < 30 ? 0xff5252 : 0xffa726);

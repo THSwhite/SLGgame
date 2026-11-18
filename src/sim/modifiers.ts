@@ -30,6 +30,8 @@ export const DEFAULT_MODIFIERS = {
   subversionResist: 0,
   consulateDeadline: 1,
   tradeIncome: 1,
+  /** Multiplier on resources plundered from destroyed enemy buildings. */
+  plunder: 1,
 };
 
 export type Modifiers = typeof DEFAULT_MODIFIERS;

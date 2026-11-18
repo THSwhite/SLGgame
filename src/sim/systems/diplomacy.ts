@@ -112,7 +112,7 @@ export function runDiplomacy(state: GameState): void {
   for (const rel of state.relations) {
     const pa = getPlayer(state, rel.a);
     const pb = getPlayer(state, rel.b);
-    if (pa.startTile === -1 || pb.startTile === -1) continue;
+    if (pa.startTile === -1 || pb.startTile === -1 || pa.eliminated || pb.eliminated) continue;
 
     if (!rel.contact && (seesPlayer(state, rel.a, rel.b) || seesPlayer(state, rel.b, rel.a))) {
       rel.contact = true;

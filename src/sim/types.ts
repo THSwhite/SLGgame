@@ -32,7 +32,9 @@ export type VillagerOrder =
   | { kind: 'work'; building: number }
   /** Training at a barracks. Food is paid on arrival; cannot be interrupted once started. */
   | { kind: 'train'; building: number; progress: number; paid: boolean }
-  | { kind: 'garrison'; building: number };
+  | { kind: 'garrison'; building: number }
+  /** Soldiers march to a tile and fight whatever enemy is there. */
+  | { kind: 'attack'; target: TileIndex };
 
 export interface Villager {
   id: number;
@@ -48,6 +50,7 @@ export interface Villager {
   soldier: boolean;
   /** 0..100. Falls while outside territory and tower coverage. */
   loyalty: number;
+  hp: number;
 }
 
 export interface Building {
@@ -59,6 +62,7 @@ export interface Building {
   progress: number;
   /** For consulates: the nation hosting it. */
   host?: PlayerId;
+  hp: number;
 }
 
 /** Per-player settings from the management menu. */
@@ -95,6 +99,7 @@ export interface Player {
   researchPoints: number;
   /** Personality for AI players (0..1 each). */
   ai: AIPersonality | null;
+  eliminated: boolean;
 }
 
 export interface AIPersonality {
@@ -138,7 +143,13 @@ export interface GameEvent {
   message: string;
 }
 
-export type Phase = 'choosingStart' | 'playing';
+export type Phase = 'choosingStart' | 'playing' | 'ended';
+
+export interface GameResult {
+  winner: PlayerId | null;
+  reason: 'conquest' | 'territory' | 'time' | 'defeat';
+  tick: number;
+}
 
 export interface GameState {
   seed: number;
@@ -156,4 +167,7 @@ export interface GameState {
   /** Bumped when map knowledge/territory changes, so renderers can cache. */
   mapVersion: number;
   relations: Relation[];
+  /** Tiles where fighting happened this tick (for rendering). */
+  combatTiles: TileIndex[];
+  result: GameResult | null;
 }

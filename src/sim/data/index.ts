@@ -71,6 +71,17 @@ export interface Balance {
     exchangeResearchBonus: number;
   };
   ai: { thinkEverySeconds: number };
+  combat: {
+    soldierAttack: number;
+    civilianAttack: number;
+    hp: Record<string, number>;
+    regenPerSecond: number;
+    roughTerrainDefense: number;
+    garrisonDefense: number;
+    plunderShare: number;
+  };
+  victory: { territoryShare: number; timeLimitMinutes: number };
+  mapSizes: Record<string, { width: number; height: number; name: string }>;
   loyalty: {
     max: number;
     start: number;
@@ -116,6 +127,7 @@ export interface BuildingDef {
   requiresGarrison?: boolean;
   /** Research points per second per worker. */
   researchPerWorker?: number;
+  hp: number;
 }
 
 export const BUILDINGS = buildingsJson as Record<BuildingType, BuildingDef>;

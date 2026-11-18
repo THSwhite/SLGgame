@@ -27,6 +27,8 @@ export function villagerStatus(state: GameState, v: Villager): string {
       return o.paid ? `訓練中 ${Math.floor(o.progress * 100)}%` : '等待訓練糧食';
     case 'garrison':
       return travelling ? '前往駐守' : '駐守瞭望塔';
+    case 'attack':
+      return travelling ? '行軍中' : '戰鬥中';
   }
 }
 

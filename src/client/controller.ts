@@ -15,6 +15,18 @@ export type Speed = (typeof SPEEDS)[number];
 export interface Selection {
   villager: number | null;
   tile: number | null;
+  /** Extra villagers selected together (shift-click / select all soldiers). Includes `villager`. */
+  group: number[];
+}
+
+export interface GameOptions {
+  seed: number;
+  aiCount: number;
+  mapSize: string;
+}
+
+export function randomSeed(): number {
+  return Math.floor(Math.random() * 2 ** 31);
 }
 
 /**
@@ -26,20 +38,24 @@ export class GameController {
   state: GameState;
   readonly localPlayer: PlayerId = 0;
   speed: Speed = 1;
-  selection: Selection = { villager: null, tile: null };
+  selection: Selection = { villager: null, tile: null, group: [] };
+  options: GameOptions;
   lastError: string | null = null;
 
   private pending: Command[] = [];
   private accumulator = 0;
   private listeners = new Set<() => void>();
 
-  constructor(seed = TEST_MAP_SEED, aiCount = 2) {
-    this.state = this.makeGame(seed, aiCount);
+  constructor(options: Partial<GameOptions> = {}) {
+    this.options = { seed: TEST_MAP_SEED, aiCount: 2, mapSize: 'medium', ...options };
+    this.state = this.makeGame();
   }
 
-  private makeGame(seed: number, aiCount: number): GameState {
+  private makeGame(): GameState {
+    const { seed, aiCount, mapSize } = this.options;
     return createGame({
       seed,
+      mapSize,
       players: [
         { name: '我的國家', color: '#e53935', isAI: false },
         ...AI_NATIONS.slice(0, aiCount).map((n) => ({ ...n, isAI: true })),
@@ -47,15 +63,27 @@ export class GameController {
     });
   }
 
-  /** Before the start is chosen: restart with a different number of AI nations. */
-  setAICount(aiCount: number) {
-    if (this.state.phase !== 'choosingStart') return;
-    this.state = this.makeGame(this.state.seed, aiCount);
+  /** Start over (before choosing a start, or after the game ended) with new options. */
+  newGame(options: Partial<GameOptions>) {
+    this.options = { ...this.options, ...options };
+    this.state = this.makeGame();
+    this.selection = { villager: null, tile: null, group: [] };
+    this.pending = [];
+    this.accumulator = 0;
+    this.lastError = null;
+    this.speed = 1;
     this.notify();
   }
 
   get aiCount(): number {
-    return this.state.players.filter((p) => p.isAI).length;
+    return this.options.aiCount;
+  }
+
+  /** Villagers the next order applies to. */
+  get orderTargets(): number[] {
+    const { villager, group } = this.selection;
+    if (group.length) return group;
+    return villager === null ? [] : [villager];
   }
 
   get tickMs(): number {
@@ -80,6 +108,8 @@ export class GameController {
   }
 
   select(sel: Partial<Selection>) {
+    // Choosing a single villager clears any group, unless a group is given.
+    if (sel.villager !== undefined && sel.group === undefined) sel = { ...sel, group: [] };
     this.selection = { ...this.selection, ...sel };
     this.lastError = null;
     this.notify();

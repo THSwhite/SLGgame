@@ -117,11 +117,13 @@ class Brain {
   }
 
   private explore(v: Villager): boolean {
-    const tile = tilesInRadius(this.state, this.me.startTile, 12)
-      .filter((t) => TERRAIN[this.state.tiles[t].terrain].land && this.me.knowledge[t] === Knowledge.Unknown)
-      .sort((a, b) => hexDistance(this.state, a, v.tile) - hexDistance(this.state, b, v.tile) || a - b)[0];
-    if (tile === undefined) return false;
-    return this.issue({ type: 'explore', player: this.me.id, villager: v.id, tile });
+    for (const radius of [12, 18]) {
+      const tile = tilesInRadius(this.state, this.me.startTile, radius)
+        .filter((t) => TERRAIN[this.state.tiles[t].terrain].land && this.me.knowledge[t] === Knowledge.Unknown)
+        .sort((a, b) => hexDistance(this.state, a, v.tile) - hexDistance(this.state, b, v.tile) || a - b)[0];
+      if (tile !== undefined) return this.issue({ type: 'explore', player: this.me.id, villager: v.id, tile });
+    }
+    return false;
   }
 
   // ---------- diplomacy ----------
@@ -145,7 +147,9 @@ class Brain {
         continue;
       }
       const since = state.tick - rel.since;
-      if (rel.status === 'none' && !rel.proposal && state.tick >= rel.cooldownUntil) {
+      // After a cooldown (rejection or break-up), the AI waits a while longer before trying again.
+      const patience = rel.cooldownUntil > 0 ? secondsToTicks(300) : 0;
+      if (rel.status === 'none' && !rel.proposal && state.tick >= rel.cooldownUntil + patience) {
         const warReady = mine >= 4 && mine >= theirs * 1.5 && state.tick > secondsToTicks(480);
         if (this.ai.aggression > 0.6 && warReady) act('declareWar');
         else if (this.ai.openness > 0.45 && since > secondsToTicks(30)) act('proposeRelations');
@@ -188,6 +192,7 @@ class Brain {
         if (this.issue({ type: 'setSoldier', player: this.me.id, villager: v.id, soldier: true })) have++;
       }
     }
+    if (this.me.atWar) this.war();
     // Idle soldiers garrison towers with free slots.
     for (const v of this.villagers) {
       if (!v.soldier || v.order.kind !== 'idle' || v.path.length > 0) continue;
@@ -200,6 +205,33 @@ class Brain {
       );
       if (tower) this.issue({ type: 'garrison', player: this.me.id, villager: v.id, building: tower.id });
     }
+  }
+
+  private war() {
+    const { state, me } = this;
+    const enemies = new Set(relationsOf(state, me.id).filter((r) => r.status === 'war').map((r) => other(r, me.id)));
+    const army = this.villagers.filter(
+      (v) => v.soldier && v.path.length === 0 && (v.order.kind === 'idle' || v.order.kind === 'attack'),
+    );
+    const idleArmy = army.filter((v) => v.order.kind === 'idle');
+    if (idleArmy.length === 0) return;
+    const send = (tile: number) => {
+      for (const v of idleArmy) this.issue({ type: 'attack', player: me.id, villager: v.id, tile });
+    };
+
+    // Defend: enemies seen inside our territory.
+    const intruder = state.villagers.find((v) => enemies.has(v.owner) && state.tiles[v.tile].owner === me.id && me.visible[v.tile]);
+    if (intruder) return send(intruder.tile);
+
+    // Attack the nearest known enemy building once the army is big enough.
+    if (army.length < 3) return;
+    const targets = state.buildings
+      .filter((b) => enemies.has(b.owner) && me.knowledge[b.tile] === Knowledge.Explored)
+      .sort((a, b) => hexDistance(state, a.tile, me.startTile) - hexDistance(state, b.tile, me.startTile) || a.id - b.id);
+    if (targets[0]) return send(targets[0].tile);
+    // Unknown enemy location: scout towards their territory.
+    const theirLand = state.tiles.findIndex((t) => t.owner !== -1 && enemies.has(t.owner));
+    if (theirLand >= 0) send(theirLand);
   }
 
   // ---------- economy ----------
@@ -277,6 +309,10 @@ class Brain {
       if (this.count('mine') === 0) {
         const stoneTiles = this.near.filter((t) => state.tiles[t].terrain === 'stone');
         if (stoneTiles.length && this.place(v, 'mine', (t) => -hexDistance(state, t, me.startTile), stoneTiles)) return true;
+        // No stone anywhere we know: a weak mine on ordinary land beats having none.
+        if (!stoneTiles.some((t) => me.knowledge[t] === Knowledge.Explored) && pop >= 6) {
+          if (this.place(v, 'mine', (t) => -hexDistance(state, t, me.startTile))) return true;
+        }
       }
       if (this.gather(v, 'stone')) return true;
     }

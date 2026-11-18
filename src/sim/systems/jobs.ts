@@ -2,9 +2,10 @@ import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES } from '../data';
 import { buildingRatePerWorker, gatherRate, researchRatePerWorker, workEfficiency, workersAt } from '../economy';
 import { getModifiers } from '../modifiers';
 import { moveCost } from '../pathfinding';
-import { getPlayer, logEvent } from '../state';
+import { getPlayer, logEvent, maxVillagerHp } from '../state';
 import { Knowledge, type Building, type GameState, type Villager } from '../types';
 import { isComplete, recomputeTerritory } from './territory';
+import { enemiesOnTile } from './combat';
 
 export { workEfficiency };
 
@@ -147,9 +148,16 @@ function stepVillager(state: GameState, v: Villager): void {
       order.progress += getModifiers(player).trainSpeed / (BALANCE.training.seconds * tps);
       if (order.progress >= 1) {
         v.level++;
+        v.hp = maxVillagerHp(v.level);
         v.order = { kind: 'idle' };
         logEvent(state, v.owner, `村民 #${v.id} 訓練完成，升到 LV${v.level}（可以從軍）`);
       }
+      return;
+    }
+    case 'attack': {
+      // Stay and fight while there is an enemy here; afterwards stand by.
+      const { villagers, buildings } = enemiesOnTile(state, v.owner, v.tile);
+      if (villagers.length === 0 && buildings.length === 0) v.order = { kind: 'idle' };
       return;
     }
     case 'garrison': {

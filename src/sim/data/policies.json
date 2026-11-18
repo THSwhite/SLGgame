@@ -2,23 +2,82 @@
   "direction": {
     "name": "國家方向",
     "options": {
-      "warEconomy": { "name": "以戰養戰", "cost": 60, "description": "戰時士兵不再額外消耗糧食；採集木材、石材 +15%", "effects": { "warFoodPenalty": -1, "gatherWood": 0.15, "gatherStone": 0.15 } },
-      "recuperate": { "name": "養精蓄銳", "cost": 60, "description": "人口生產間隔 -25%；糧食消耗 -10%", "effects": { "popInterval": -0.25, "foodConsumption": -0.1 } }
+      "warEconomy": {
+        "name": "以戰養戰",
+        "cost": 60,
+        "description": "戰時士兵不再額外消耗糧食；摧毀敵方建築時掠奪加倍；採集木材、石材 +15%",
+        "effects": {
+          "warFoodPenalty": -1,
+          "gatherWood": 0.15,
+          "gatherStone": 0.15,
+          "plunder": 1
+        }
+      },
+      "recuperate": {
+        "name": "養精蓄銳",
+        "cost": 60,
+        "description": "人口生產間隔 -25%；糧食消耗 -10%",
+        "effects": {
+          "popInterval": -0.25,
+          "foodConsumption": -0.1
+        }
+      }
     }
   },
   "military": {
     "name": "軍事路線",
     "options": {
-      "light":     { "name": "輕型", "cost": 80, "description": "士兵移動速度 +30%，攻擊 +10%", "effects": { "soldierSpeed": 0.3, "soldierAttack": 0.1 } },
-      "heavy":     { "name": "重型", "cost": 80, "description": "士兵攻擊、防禦 +30%，移動速度 -15%", "effects": { "soldierAttack": 0.3, "soldierDefense": 0.3, "soldierSpeed": -0.15 } },
-      "guerrilla": { "name": "游擊", "cost": 80, "description": "士兵在森林、泥地防禦 +50%；士兵忠誠度不會下降", "effects": { "roughTerrainDefense": 0.5, "soldierLoyaltyImmune": 1 } }
+      "light": {
+        "name": "輕型",
+        "cost": 80,
+        "description": "士兵移動速度 +30%，攻擊 +10%",
+        "effects": {
+          "soldierSpeed": 0.3,
+          "soldierAttack": 0.1
+        }
+      },
+      "heavy": {
+        "name": "重型",
+        "cost": 80,
+        "description": "士兵攻擊、防禦 +30%，移動速度 -15%",
+        "effects": {
+          "soldierAttack": 0.3,
+          "soldierDefense": 0.3,
+          "soldierSpeed": -0.15
+        }
+      },
+      "guerrilla": {
+        "name": "游擊",
+        "cost": 80,
+        "description": "士兵在森林、泥地防禦 +50%；士兵忠誠度不會下降",
+        "effects": {
+          "roughTerrainDefense": 0.5,
+          "soldierLoyaltyImmune": 1
+        }
+      }
     }
   },
   "foreign": {
     "name": "外交路線",
     "options": {
-      "openDoor":  { "name": "開放外交", "cost": 50, "description": "貿易收入 +50%，領事館期限 +25%", "effects": { "tradeIncome": 0.5, "consulateDeadline": 0.25 } },
-      "isolation": { "name": "閉關自守", "cost": 50, "description": "己方村民被策反的機率 -60%；忠誠度下降速度 -30%", "effects": { "subversionResist": 0.6, "loyaltyDecay": -0.3 } }
+      "openDoor": {
+        "name": "開放外交",
+        "cost": 50,
+        "description": "貿易收入 +50%，領事館期限 +25%",
+        "effects": {
+          "tradeIncome": 0.5,
+          "consulateDeadline": 0.25
+        }
+      },
+      "isolation": {
+        "name": "閉關自守",
+        "cost": 50,
+        "description": "己方村民被策反的機率 -60%；忠誠度下降速度 -30%",
+        "effects": {
+          "subversionResist": 0.6,
+          "loyaltyDecay": -0.3
+        }
+      }
     }
   }
 }

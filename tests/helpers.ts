@@ -63,6 +63,6 @@ export function freeTile(s: GameState, player = 0, pred: (i: number) => boolean 
 /** Add a completed building directly (for setting up tests). */
 export function addBuilding(s: GameState, type: GameState['buildings'][number]['type'], tile: number, owner = 0) {
   const id = s.nextEntityId++;
-  s.buildings.push({ id, type, owner, tile, progress: 1 });
+  s.buildings.push({ id, type, owner, tile, progress: 1, hp: 100 });
   return id;
 }

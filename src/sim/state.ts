@@ -30,7 +30,12 @@ export function newVillager(state: GameState, owner: PlayerId, tile: TileIndex):
     order: { kind: 'idle' },
     soldier: false,
     loyalty: BALANCE.loyalty.start,
+    hp: BALANCE.combat.hp['1'],
   };
   state.villagers.push(v);
   return v;
+}
+
+export function maxVillagerHp(level: number): number {
+  return BALANCE.combat.hp[String(level)] ?? BALANCE.combat.hp['1'];
 }

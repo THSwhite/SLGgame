@@ -136,7 +136,7 @@ describe('diplomacy', () => {
     diplo(s, 0, 1, 'proposeRelations');
     diplo(s, 1, 0, 'accept');
     const inP1 = s.tiles.findIndex((t) => t.owner === 1);
-    s.buildings.push({ id: 999, type: 'consulate', owner: 0, tile: inP1, progress: 1, host: 1 });
+    s.buildings.push({ id: 999, type: 'consulate', owner: 0, tile: inP1, progress: 1, host: 1, hp: 100 });
     diplo(s, 1, 0, 'declareWar');
     expect(rel.status).toBe('war');
     expect(s.players[0].atWar && s.players[1].atWar).toBe(true);

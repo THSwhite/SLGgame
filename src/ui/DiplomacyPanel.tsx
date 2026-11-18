@@ -4,6 +4,7 @@ import { BALANCE } from '../sim/data';
 import { consulateOf, getRelation, STATUS_NAMES, tradePerMinute } from '../sim/systems/diplomacy';
 import type { GameState } from '../sim/types';
 import { formatTime } from './describe';
+import { landShare, nationScore } from '../sim/systems/victory';
 
 export function pendingProposals(state: GameState, me: number): number {
   return state.relations.filter((r) => (r.a === me || r.b === me) && r.proposal && r.proposal.from !== me).length;
@@ -24,6 +25,7 @@ export function DiplomacyPanel({ controller, state, onClose }: { controller: Gam
       <div className="hint">
         建交後，雙方要在 {BALANCE.diplomacy.consulateDeadlineSeconds} 秒內各自在對方國土內蓋好領事館（選村民 → 點對方國土 → 建造領事館），
         否則邦交破裂，並有 {BALANCE.diplomacy.cooldownSeconds} 秒冷卻期。正式邦交帶來貿易收入與研究交流。攻擊別國前必須先宣戰。
+        勝利條件：消滅所有國家、控制 {Math.round(BALANCE.victory.territoryShare * 100)}% 的陸地，或在 {BALANCE.victory.timeLimitMinutes} 分鐘時國力最強。
       </div>
       {others.length === 0 && <div className="hint">這局沒有其他國家。</div>}
       {others.map((p) => {
@@ -48,6 +50,7 @@ export function DiplomacyPanel({ controller, state, onClose }: { controller: Gam
             <div className="nation-head">
               <span className="swatch" style={{ background: p.color }} />
               <b>{p.name}</b>
+              {p.eliminated ? <span className="neg">已滅亡</span> : <span className="hint">國力 {nationScore(state, p)}</span>}
               <span className={`status-tag tag-${rel.status}`}>{STATUS_NAMES[rel.status]}</span>
             </div>
             {(rel.status === 'establishing' || rel.status === 'allied') && (
@@ -94,6 +97,9 @@ export function DiplomacyPanel({ controller, state, onClose }: { controller: Gam
           </div>
         );
       })}
+      <div className="hint">
+        我的國力 {nationScore(state, state.players[me])}　領土 {(landShare(state, state.players[me]) * 100).toFixed(1)}%（{Math.round(BALANCE.victory.territoryShare * 100)}% 即獲勝）
+      </div>
       {(trade.food > 0 || trade.wood > 0) && (
         <div className="hint">
           貿易收入：糧食 +{trade.food.toFixed(1)}/分、木材 +{trade.wood.toFixed(1)}/分、石材 +{trade.stone.toFixed(1)}/分

@@ -1,4 +1,4 @@
-import { BALANCE } from './data';
+import { BALANCE, TERRAIN } from './data';
 import { applyCommand, type Command } from './commands';
 import { generateMap } from './mapgen';
 import { runFood } from './systems/food';
@@ -13,6 +13,8 @@ import { Rng } from './rng';
 import { makeRelations } from './systems/diplomacy';
 import { runDiplomacy } from './systems/diplomacy';
 import { runAI } from './ai/ai';
+import { runCombat } from './systems/combat';
+import { runVictory } from './systems/victory';
 
 export interface PlayerSetup {
   name: string;
@@ -23,18 +25,31 @@ export interface PlayerSetup {
 export interface GameSetup {
   seed: number;
   players: PlayerSetup[];
+  /** Key of BALANCE.mapSizes (default: the balance map size). */
+  mapSize?: string;
 }
+
+/** Land share outside this range is rerolled (deterministically) for playability. */
+const MIN_LAND = 0.35;
+const MAX_LAND = 0.75;
 
 /** The fixed seed used by the test map. */
 export const TEST_MAP_SEED = 20261118;
 
 export function createGame(setup: GameSetup): GameState {
-  const { width, height } = BALANCE.map;
-  const tiles = generateMap(setup.seed, { width, height });
-  const personality = new Rng(setup.seed ^ 0x2545f491);
+  const { width, height } = setup.mapSize ? BALANCE.mapSizes[setup.mapSize] : BALANCE.map;
+  let seed = setup.seed;
+  let tiles = generateMap(seed, { width, height });
+  for (let tries = 0; tries < 20; tries++) {
+    const land = tiles.filter((t) => TERRAIN[t.terrain].land).length / tiles.length;
+    if (land >= MIN_LAND && land <= MAX_LAND) break;
+    seed = (seed + 7919) | 0;
+    tiles = generateMap(seed, { width, height });
+  }
+  const personality = new Rng(seed ^ 0x2545f491);
   return {
-    seed: setup.seed,
-    rngState: setup.seed ^ 0x5bd1e995,
+    seed,
+    rngState: seed ^ 0x5bd1e995,
     tick: 0,
     phase: 'choosingStart',
     width,
@@ -63,6 +78,7 @@ export function createGame(setup: GameSetup): GameState {
       ai: p.isAI
         ? { aggression: personality.next(), openness: personality.next(), expansion: personality.next() }
         : null,
+      eliminated: false,
     })),
     villagers: [],
     buildings: [],
@@ -70,6 +86,8 @@ export function createGame(setup: GameSetup): GameState {
     events: [],
     mapVersion: 0,
     relations: makeRelations(setup.players.length),
+    combatTiles: [],
+    result: null,
   };
 }
 
@@ -83,6 +101,7 @@ export function stepGame(state: GameState, commands: Command[] = []): Array<stri
   if (state.phase !== 'playing') return results;
   state.tick++;
   runJobs(state);
+  runCombat(state);
   updateTerritory(state);
   runFood(state);
   runPopulation(state);
@@ -90,6 +109,8 @@ export function stepGame(state: GameState, commands: Command[] = []): Array<stri
   runLoyalty(state);
   runDiplomacy(state);
   runAI(state);
+  runVictory(state);
+  updateTerritory(state);
   updateVision(state);
   return results;
 }

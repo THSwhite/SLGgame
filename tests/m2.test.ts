@@ -144,7 +144,7 @@ describe('construction and work', () => {
   it('enforces worker slots', () => {
     const s = startAt(hasFarmland);
     const tile = freeFarmland(s);
-    s.buildings.push({ id: 999, type: 'farm', owner: 0, tile, progress: 1 });
+    s.buildings.push({ id: 999, type: 'farm', owner: 0, tile, progress: 1, hp: 100 });
     ok(s, { type: 'work', player: 0, villager: s.villagers[0].id, building: 999 });
     ok(s, { type: 'work', player: 0, villager: s.villagers[1].id, building: 999 });
     expect(validateCommand(s, { type: 'work', player: 0, villager: s.villagers[2].id, building: 999 })).toMatch(/已滿/);
@@ -158,15 +158,15 @@ describe('construction and work', () => {
     const dry = s.tiles.findIndex(
       (t, i) => TERRAIN[t.terrain].farmable && neighbors(s, i).every((n) => !TERRAIN[s.tiles[n].terrain].freshWater),
     );
-    const wet = buildingRatePerWorker(s, { id: 1, type: 'farm', owner: 0, tile: lakeSide, progress: 1 }).food;
-    const plain = buildingRatePerWorker(s, { id: 2, type: 'farm', owner: 0, tile: dry, progress: 1 }).food;
+    const wet = buildingRatePerWorker(s, { id: 1, type: 'farm', owner: 0, tile: lakeSide, progress: 1, hp: 100 }).food;
+    const plain = buildingRatePerWorker(s, { id: 2, type: 'farm', owner: 0, tile: dry, progress: 1, hp: 100 }).food;
     expect(lakeSide).toBeGreaterThanOrEqual(0);
     expect(wet).toBeCloseTo(plain * (1 + BUILDINGS.farm.freshWaterBonus!), 9);
 
     const stone = s.tiles.findIndex((t) => t.terrain === 'stone');
     const grass = s.tiles.findIndex((t) => t.terrain === 'grass');
-    const onStone = buildingRatePerWorker(s, { id: 3, type: 'mine', owner: 0, tile: stone, progress: 1 }).stone;
-    const offStone = buildingRatePerWorker(s, { id: 4, type: 'mine', owner: 0, tile: grass, progress: 1 }).stone;
+    const onStone = buildingRatePerWorker(s, { id: 3, type: 'mine', owner: 0, tile: stone, progress: 1, hp: 100 }).stone;
+    const offStone = buildingRatePerWorker(s, { id: 4, type: 'mine', owner: 0, tile: grass, progress: 1, hp: 100 }).stone;
     expect(offStone).toBeCloseTo(onStone * BUILDINGS.mine.nonStoneMultiplier!, 9);
   });
 
@@ -202,8 +202,8 @@ describe('population', () => {
     // Two farms with two workers each.
     const t1 = freeFarmland(s);
     const t2 = freeFarmland(s, [t1]);
-    s.buildings.push({ id: 900, type: 'farm', owner: 0, tile: t1, progress: 1 });
-    s.buildings.push({ id: 901, type: 'farm', owner: 0, tile: t2, progress: 1 });
+    s.buildings.push({ id: 900, type: 'farm', owner: 0, tile: t1, progress: 1, hp: 100 });
+    s.buildings.push({ id: 901, type: 'farm', owner: 0, tile: t2, progress: 1, hp: 100 });
     ok(s, { type: 'work', player: 0, villager: s.villagers[0].id, building: 900 });
     ok(s, { type: 'work', player: 0, villager: s.villagers[1].id, building: 900 });
     ok(s, { type: 'work', player: 0, villager: s.villagers[2].id, building: 901 });
@@ -219,7 +219,7 @@ describe('population', () => {
     const p = s.players[0];
     p.stock.food = 1000;
     p.management.popIntervalSeconds = 10;
-    s.buildings.push({ id: 900, type: 'farm', owner: 0, tile: freeFarmland(s), progress: 1 });
+    s.buildings.push({ id: 900, type: 'farm', owner: 0, tile: freeFarmland(s), progress: 1, hp: 100 });
     ok(s, { type: 'work', player: 0, villager: s.villagers[0].id, building: 900 });
     let count = s.villagers.length;
     for (let i = 0; i < 120 * BALANCE.ticksPerSecond; i++) {

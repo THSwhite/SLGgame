@@ -74,5 +74,38 @@
   },
   "ai": {
     "thinkEverySeconds": 2
+  },
+  "combat": {
+    "soldierAttack": 6,
+    "civilianAttack": 1.5,
+    "hp": {
+      "1": 50,
+      "2": 100
+    },
+    "regenPerSecond": 1,
+    "roughTerrainDefense": 0.2,
+    "garrisonDefense": 0.5,
+    "plunderShare": 0.5
+  },
+  "victory": {
+    "territoryShare": 0.4,
+    "timeLimitMinutes": 60
+  },
+  "mapSizes": {
+    "small": {
+      "width": 40,
+      "height": 28,
+      "name": "小"
+    },
+    "medium": {
+      "width": 48,
+      "height": 32,
+      "name": "中"
+    },
+    "large": {
+      "width": 64,
+      "height": 40,
+      "name": "大"
+    }
   }
 }

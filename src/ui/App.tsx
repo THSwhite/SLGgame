@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { GameController, MAX_AI, SPEEDS, type Speed } from '../client/controller';
+import { GameController, MAX_AI, randomSeed, SPEEDS, type Speed } from '../client/controller';
 import { MapRenderer } from '../client/renderer';
 import { BALANCE, BUILDING_TYPES, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES, TERRAIN, type ResourceType } from '../sim/data';
 import { validateCommand } from '../sim/commands';
@@ -12,6 +12,9 @@ import {
   workersAt,
 } from '../sim/economy';
 import { garrisonOf } from '../sim/systems/territory';
+import { enemiesOnTile } from '../sim/systems/combat';
+import { getRelation } from '../sim/systems/diplomacy';
+import { EndOverlay } from './EndOverlay';
 import { ResearchPanel } from './ResearchPanel';
 import { DiplomacyPanel, pendingProposals } from './DiplomacyPanel';
 import { foodConsumptionPerMinute } from '../sim/systems/food';
@@ -21,29 +24,49 @@ import { formatTime, terrainLabel, tileLabel, villagerStatus } from './describe'
 
 const SPEED_LABEL: Record<Speed, string> = { 0: '⏸', 1: '1×', 2: '2×', 5: '5×' };
 
-/** Pick the default order for a right-click on a tile. */
-function smartCommand(c: GameController, tile: number) {
+/** Pick the default order for one villager right-clicking a tile. */
+function smartOne(c: GameController, vid: number, tile: number): string | null {
   const s = c.state;
-  const vid = c.selection.villager;
-  if (vid === null) return;
   const me = s.players[c.localPlayer];
-  if (!TERRAIN[s.tiles[tile].terrain].land) {
+  const villager = s.villagers.find((v) => v.id === vid);
+  if (!villager) return null;
+  const building = s.buildings.find((b) => b.tile === tile && b.owner === me.id);
+  const def = building ? BUILDINGS[building.type] : null;
+  const p = me.id;
+  if (villager.soldier) {
+    const { villagers, buildings } = enemiesOnTile(s, me.id, tile);
+    const owner = s.tiles[tile].owner;
+    const hostileLand = owner !== -1 && owner !== me.id && getRelation(s, me.id, owner).status === 'war';
+    if (villagers.length || buildings.length || hostileLand) return c.issue({ type: 'attack', player: p, villager: vid, tile });
+  }
+  if (building && def && building.progress >= 1 && def.garrisonSlots > 0 && villager.soldier) {
+    return c.issue({ type: 'garrison', player: p, villager: vid, building: building.id });
+  }
+  if (building && def && building.progress >= 1 && def.trainingSlots > 0 && !villager.soldier) {
+    return c.issue({ type: 'train', player: p, villager: vid, building: building.id });
+  }
+  if (building && def && !villager.soldier && (building.progress < 1 || def.workerSlots > 0)) {
+    return c.issue({ type: 'work', player: p, villager: vid, building: building.id });
+  }
+  if (me.knowledge[tile] !== Knowledge.Explored) return c.issue({ type: 'explore', player: p, villager: vid, tile });
+  if (s.tiles[tile].deposits.length > 0 && !villager.soldier) return c.issue({ type: 'gather', player: p, villager: vid, tile });
+  return c.issue({ type: 'move', player: p, villager: vid, tile });
+}
+
+/** Right-click: give every selected villager a sensible order for the tile. */
+function smartCommand(c: GameController, tile: number) {
+  const targets = c.orderTargets;
+  if (targets.length === 0) return;
+  if (!TERRAIN[c.state.tiles[tile].terrain].land) {
     c.lastError = '只能前往陸地';
     c.notify();
     return;
   }
-  const building = s.buildings.find((b) => b.tile === tile && b.owner === me.id);
-  const villager = s.villagers.find((v) => v.id === vid);
-  const def = building ? BUILDINGS[building.type] : null;
-  if (building && def && building.progress >= 1 && def.garrisonSlots > 0 && villager?.soldier) {
-    c.issue({ type: 'garrison', player: me.id, villager: vid, building: building.id });
-  } else if (building && def && building.progress >= 1 && def.trainingSlots > 0 && !villager?.soldier) {
-    c.issue({ type: 'train', player: me.id, villager: vid, building: building.id });
-  } else if (building && def && (building.progress < 1 || def.workerSlots > 0)) {
-    c.issue({ type: 'work', player: me.id, villager: vid, building: building.id });
-  } else if (me.knowledge[tile] !== Knowledge.Explored) c.issue({ type: 'explore', player: me.id, villager: vid, tile });
-  else if (s.tiles[tile].deposits.length > 0) c.issue({ type: 'gather', player: me.id, villager: vid, tile });
-  else c.issue({ type: 'move', player: me.id, villager: vid, tile });
+  const errors = targets.map((id) => smartOne(c, id, tile)).filter((e): e is string => e !== null);
+  if (errors.length) {
+    c.lastError = errors[0];
+    c.notify();
+  }
 }
 
 export function App() {
@@ -117,6 +140,7 @@ export function App() {
   return (
     <div className="app">
       <div className="map" ref={hostRef} />
+      {s.phase === 'ended' && <EndOverlay controller={controller} state={s} />}
       {s.phase === 'choosingStart' ? (
         <StartOverlay controller={controller} onStarted={(t) => rendererRef.current?.centerOn(t)} />
       ) : (
@@ -153,11 +177,27 @@ function StartOverlay({ controller, onStarted }: { controller: GameController; o
         <span>AI 國家數量</span>
         <span className="speeds">
           {Array.from({ length: MAX_AI + 1 }, (_, n) => (
-            <button key={n} className={controller.aiCount === n ? 'active' : ''} onClick={() => controller.setAICount(n)}>
+            <button key={n} className={controller.aiCount === n ? 'active' : ''} onClick={() => controller.newGame({ aiCount: n })}>
               {n}
             </button>
           ))}
         </span>
+      </div>
+      <div className="row">
+        <span>地圖大小</span>
+        <span className="speeds">
+          {Object.entries(BALANCE.mapSizes).map(([key, m]) => (
+            <button key={key} className={controller.options.mapSize === key ? 'active' : ''} onClick={() => controller.newGame({ mapSize: key })}>
+              {m.name}
+            </button>
+          ))}
+        </span>
+      </div>
+      <div className="row">
+        <span>
+          地圖種子 <code>{s.seed}</code>
+        </span>
+        <button onClick={() => controller.newGame({ seed: randomSeed() })}>🎲 隨機地圖</button>
       </div>
       <div className="row">
         <span>{tile === null ? '尚未選擇' : land ? `已選擇 (${tileLabel(s, tile)})` : '這裡是水域，請選擇陸地'}</span>
@@ -347,11 +387,31 @@ function VillagerPanel({
           下一位閒置（{idle.length}）
         </button>
       </div>
+      <div className="actions">
+        <button
+          disabled={!mine.some((v) => v.soldier)}
+          onClick={() => {
+            const group = mine.filter((v) => v.soldier).map((v) => v.id);
+            controller.select({ villager: group[0], group });
+          }}
+        >
+          選取全部士兵
+        </button>
+        {controller.selection.group.length > 1 && <span className="hint">已選取 {controller.selection.group.length} 人</span>}
+      </div>
       {mine.map((v) => (
         <div
           key={v.id}
-          className={`villager ${controller.selection.villager === v.id ? 'selected' : ''} ${v.order.kind === 'idle' ? 'idle' : ''}`}
-          onClick={() => controller.select({ villager: v.id })}
+          className={`villager ${controller.orderTargets.includes(v.id) ? 'selected' : ''} ${v.order.kind === 'idle' ? 'idle' : ''}`}
+          onClick={(e) => {
+            if (e.shiftKey || e.ctrlKey || e.metaKey) {
+              const g = new Set(controller.orderTargets);
+              if (g.has(v.id)) g.delete(v.id);
+              else g.add(v.id);
+              const group = [...g];
+              controller.select({ villager: group[0] ?? null, group });
+            } else controller.select({ villager: v.id });
+          }}
           onDoubleClick={() => onFocus(v.tile)}
         >
           <span>
@@ -364,6 +424,8 @@ function VillagerPanel({
       <SelectedVillager controller={controller} state={state} />
       <div className="hint">
         左鍵：選取 ／ 右鍵：對選取的村民下指令（自己的建築→建造或工作、未探索→探索、有資源→採集、其他→移動）
+        <br />
+        Shift＋點清單：多選 ／ 士兵右鍵敵方：進攻
         <br />
         空白鍵：暫停 ／ 1 2 3：速度 ／ M：管理 ／ R：研究 ／ D：外交
       </div>
@@ -503,6 +565,11 @@ function TilePanel({ controller, state }: { controller: GameController; state: G
               </button>
             ))}
           <button onClick={() => controller.issue({ type: 'move', player: me.id, villager: villager.id, tile })}>移動</button>
+          {villager.soldier && (
+            <button className="danger" onClick={() => controller.orderTargets.forEach((id) => controller.issue({ type: 'attack', player: me.id, villager: id, tile }))}>
+              進攻
+            </button>
+          )}
           {villager.order.kind !== 'idle' && (
             <button onClick={() => controller.issue({ type: 'stop', player: me.id, villager: villager.id })}>停止</button>
           )}

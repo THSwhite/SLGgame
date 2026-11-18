@@ -110,3 +110,12 @@ button.danger { border-color: #e57373; color: #ffcdd2; }
 .tag-allied { background: #2e7d32; }
 .tag-establishing { background: #f57f17; color: #1a1a1a; }
 .proposal { background: rgba(255, 202, 40, 0.12); border-radius: 4px; padding: 6px; margin: 6px 0; }
+
+.end-overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; justify-content: center; z-index: 10; padding: 16px; }
+.end-panel { position: static; width: min(460px, 100%); }
+.end-panel h2 { margin: 0 0 6px; font-size: 24px; }
+.end-mini { bottom: 8px; right: 8px; z-index: 10; }
+.ranking { width: 100%; border-collapse: collapse; margin: 8px 0; }
+.ranking th, .ranking td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.ranking tr.eliminated { opacity: 0.5; }
+code { background: #2b3644; padding: 1px 6px; border-radius: 4px; font-size: 12px; }

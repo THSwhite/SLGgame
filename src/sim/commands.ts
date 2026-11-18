@@ -30,7 +30,9 @@ export type Command =
   | { type: 'garrison'; player: PlayerId; villager: number; building: number }
   /** Pick the tech or policy to research next (null clears it). */
   | { type: 'setResearch'; player: PlayerId; research: string | null }
-  | { type: 'diplomacy'; player: PlayerId; target: PlayerId; action: DiplomacyAction };
+  | { type: 'diplomacy'; player: PlayerId; target: PlayerId; action: DiplomacyAction }
+  /** Soldiers march to a tile and fight enemies (at war) there. */
+  | { type: 'attack'; player: PlayerId; villager: number; tile: TileIndex };
 
 export type DiplomacyAction =
   | 'proposeRelations'
@@ -179,7 +181,9 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
     return null;
   }
 
+  if (state.phase === 'ended') return '遊戲已經結束';
   if (state.phase !== 'playing') return '尚未開局';
+  if (player.eliminated) return '你的國家已經滅亡';
 
   if (cmd.type === 'setManagement') {
     const i = cmd.settings.popIntervalSeconds;
@@ -208,6 +212,20 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
   const productive = cmd.type === 'gather' || cmd.type === 'work' || cmd.type === 'placeBuilding' || cmd.type === 'train';
   if (v.soldier && productive) return '士兵不能從事生產工作（可以先解除士兵身分）';
   if (!v.soldier && cmd.type === 'garrison') return '只有士兵可以駐守';
+  if (!v.soldier && cmd.type === 'attack') return '只有士兵可以進攻';
+  if (cmd.type === 'attack') {
+    if (!isLand(state, cmd.tile)) return '只能前往陸地';
+    const foreign = new Set<PlayerId>();
+    for (const x of state.villagers) if (x.tile === cmd.tile && x.owner !== cmd.player) foreign.add(x.owner);
+    for (const b of state.buildings) if (b.tile === cmd.tile && b.owner !== cmd.player) foreign.add(b.owner);
+    const t = state.tiles[cmd.tile].owner;
+    if (t !== -1 && t !== cmd.player) foreign.add(t);
+    if ([...foreign].some((f) => getRelation(state, cmd.player, f).status !== 'war') && ![...foreign].some((f) => getRelation(state, cmd.player, f).status === 'war')) {
+      return '不能攻擊沒有宣戰的國家，請先宣戰';
+    }
+    if (findPath(state, v.tile, cmd.tile) === null) return '無法抵達該地塊';
+    return null;
+  }
 
   if (cmd.type === 'train' || cmd.type === 'garrison') {
     const b = state.buildings.find((x) => x.id === cmd.building);
@@ -269,7 +287,7 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
 function startPlayer(state: GameState, player: PlayerId, tile: TileIndex): void {
   const p = getPlayer(state, player);
   p.startTile = tile;
-  state.buildings.push({ id: state.nextEntityId++, type: 'camp', owner: player, tile, progress: 1 });
+  state.buildings.push({ id: state.nextEntityId++, type: 'camp', owner: player, tile, progress: 1, hp: BUILDINGS.camp.hp });
   for (let i = 0; i < BALANCE.startingVillagers; i++) newVillager(state, player, tile);
   for (const idx of tilesInRadius(state, tile, BALANCE.camp.exploredRadius)) {
     p.knowledge[idx] = Knowledge.Explored;
@@ -331,7 +349,7 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
     const p = getPlayer(state, cmd.player);
     pay(p, BUILDINGS[cmd.building].cost);
     const id = state.nextEntityId++;
-    const building = { id, type: cmd.building, owner: cmd.player, tile: cmd.tile, progress: 0 } as GameState['buildings'][number];
+    const building = { id, type: cmd.building, owner: cmd.player, tile: cmd.tile, progress: 0, hp: BUILDINGS[cmd.building].hp } as GameState['buildings'][number];
     if (BUILDINGS[cmd.building].territory === 'foreign') building.host = state.tiles[cmd.tile].owner as PlayerId;
     state.buildings.push(building);
     state.mapVersion++;
@@ -362,6 +380,9 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
     case 'work':
     case 'train':
     case 'garrison':
+      break;
+    case 'attack':
+      v.order = { kind: 'attack', target: cmd.tile };
       break;
     case 'explore':
       v.order = { kind: 'explore', target: cmd.tile, progress: 0 };
