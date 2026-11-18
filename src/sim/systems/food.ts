@@ -1,16 +1,22 @@
 import { BALANCE } from '../data';
+import { getModifiers } from '../modifiers';
 import type { GameState, Player, Villager } from '../types';
 
-export function villagerFoodPerMinute(v: Villager, atWar: boolean): number {
+export function villagerFoodPerMinute(v: Villager, player: Player): number {
   const level = BALANCE.villagerLevels[String(v.level)];
-  const isSoldier = false; // Soldiers arrive with the barracks (M3).
-  return level.foodPerMinute * (isSoldier && atWar ? BALANCE.warSoldierFoodMultiplier : 1);
+  const mods = getModifiers(player);
+  let mult = mods.foodConsumption;
+  if (v.soldier && player.atWar) {
+    // War penalty: soldiers eat more in wartime (policies can reduce it).
+    mult *= 1 + (BALANCE.warSoldierFoodMultiplier - 1) * mods.warFoodPenalty;
+  }
+  return level.foodPerMinute * mult;
 }
 
 export function foodConsumptionPerMinute(state: GameState, player: Player): number {
   let total = 0;
   for (const v of state.villagers) {
-    if (v.owner === player.id) total += villagerFoodPerMinute(v, player.atWar);
+    if (v.owner === player.id) total += villagerFoodPerMinute(v, player);
   }
   return total;
 }

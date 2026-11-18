@@ -1,6 +1,7 @@
 import { BALANCE, BUILDINGS } from '../data';
 import { incomePerMinute } from '../economy';
-import { logEvent, secondsToTicks } from '../state';
+import { logEvent, newVillager, secondsToTicks } from '../state';
+import { getModifiers } from '../modifiers';
 import type { GameState, Player } from '../types';
 import { foodConsumptionPerMinute } from './food';
 import { isComplete } from './territory';
@@ -31,18 +32,21 @@ export function populationBlocked(state: GameState, player: Player): string | nu
   return null;
 }
 
+export function popIntervalTicks(player: Player): number {
+  return Math.max(1, secondsToTicks(player.management.popIntervalSeconds * getModifiers(player).popInterval));
+}
+
 export function runPopulation(state: GameState): void {
   for (const player of state.players) {
     if (player.startTile === -1) continue;
     if (populationBlocked(state, player)) continue;
     player.popProgress++;
-    if (player.popProgress < secondsToTicks(player.management.popIntervalSeconds)) continue;
+    if (player.popProgress < popIntervalTicks(player)) continue;
     player.popProgress = 0;
     player.stock.food -= BALANCE.population.foodCostPerVillager;
     const camp = state.buildings.find((b) => b.owner === player.id && b.type === 'camp');
     const tile = camp?.tile ?? player.startTile;
-    const id = state.nextEntityId++;
-    state.villagers.push({ id, owner: player.id, level: 1, tile, path: [], moveProgress: 0, order: { kind: 'idle' } });
-    logEvent(state, player.id, `新的村民 #${id} 加入了國家`);
+    const v = newVillager(state, player.id, tile);
+    logEvent(state, player.id, `新的村民 #${v.id} 加入了國家`);
   }
 }

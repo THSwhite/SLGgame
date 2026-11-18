@@ -1,5 +1,6 @@
 import { BALANCE, BUILDINGS, RESOURCE_TYPES, TERRAIN, type ResourceType } from './data';
 import { neighbors } from './hex';
+import { getModifiers, type Modifiers } from './modifiers';
 import { getPlayer } from './state';
 import type { Building, GameState, Player, Villager } from './types';
 
@@ -23,14 +24,29 @@ export function hasFreshWaterNearby(state: GameState, tile: number): boolean {
   return neighbors(state, tile).some((n) => TERRAIN[state.tiles[n].terrain].freshWater);
 }
 
+const GATHER_MOD: Record<ResourceType, keyof Modifiers> = {
+  food: 'gatherFood',
+  wood: 'gatherWood',
+  stone: 'gatherStone',
+  ore: 'gatherOre',
+};
+
+/** Hand-gathering speed per second for a player (efficiency 1). */
+export function gatherRate(player: Player, r: ResourceType): number {
+  return BALANCE.gatherPerSecond[r] * getModifiers(player)[GATHER_MOD[r]];
+}
+
 /** Resources per second produced by one worker (efficiency 1) at a building. */
 export function buildingRatePerWorker(state: GameState, b: Building): Rates {
   const def = BUILDINGS[b.type];
   const tile = state.tiles[b.tile];
+  const mods = getModifiers(getPlayer(state, b.owner));
   const out = zeroRates();
   let mult = 1;
   if (def.freshWaterBonus && hasFreshWaterNearby(state, b.tile)) mult += def.freshWaterBonus;
   if (def.nonStoneMultiplier !== undefined && tile.terrain !== 'stone') mult *= def.nonStoneMultiplier;
+  if (b.type === 'farm') mult *= mods.farmRate;
+  if (b.type === 'mine') mult *= mods.mineRate;
   for (const r of RESOURCE_TYPES) {
     const base = def.production[r] ?? 0;
     if (base <= 0) continue;
@@ -39,6 +55,12 @@ export function buildingRatePerWorker(state: GameState, b: Building): Rates {
     out[r] = base * mult;
   }
   return out;
+}
+
+/** Research points per second produced by one worker (efficiency 1) at a building. */
+export function researchRatePerWorker(state: GameState, b: Building): number {
+  const base = BUILDINGS[b.type].researchPerWorker ?? 0;
+  return base * getModifiers(getPlayer(state, b.owner)).researchRate;
 }
 
 export function workersAt(state: GameState, buildingId: number): Villager[] {
@@ -51,7 +73,7 @@ export function villagerRate(state: GameState, v: Villager): Rates {
   if (v.path.length > 0) return out;
   const eff = workEfficiency(state, v);
   if (v.order.kind === 'gather') {
-    out[v.order.resource] = BALANCE.gatherPerSecond[v.order.resource] * eff;
+    out[v.order.resource] = gatherRate(getPlayer(state, v.owner), v.order.resource) * eff;
   } else if (v.order.kind === 'work') {
     const id = v.order.building;
     const b = state.buildings.find((x) => x.id === id);
@@ -72,6 +94,18 @@ export function incomePerMinute(state: GameState, player: Player): Rates {
     for (const k of RESOURCE_TYPES) out[k] += r[k] * 60;
   }
   return out;
+}
+
+/** Research points per minute currently being produced. */
+export function researchPerMinute(state: GameState, player: Player): number {
+  let total = 0;
+  for (const v of state.villagers) {
+    if (v.owner !== player.id || v.order.kind !== 'work' || v.path.length > 0) continue;
+    const id = v.order.building;
+    const b = state.buildings.find((x) => x.id === id);
+    if (b) total += researchRatePerWorker(state, b) * workEfficiency(state, v) * 60;
+  }
+  return total;
 }
 
 export function canAfford(player: Player, cost: Partial<Rates>): boolean {

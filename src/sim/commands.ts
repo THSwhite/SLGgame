@@ -2,8 +2,9 @@ import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES, TERRAIN, type Build
 import { canAfford, pay, workersAt } from './economy';
 import { hexDistance, tilesInRadius } from './hex';
 import { findPath } from './pathfinding';
-import { getPlayer, logEvent } from './state';
+import { getPlayer, logEvent, newVillager } from './state';
 import { connectsToTerritory, distanceToTerritory, isComplete, recomputeTerritory } from './systems/territory';
+import { researchBlocked } from './systems/research';
 import { updateVision } from './systems/vision';
 import { Knowledge, type GameState, type Management, type Player, type PlayerId, type TileIndex, type Villager } from './types';
 
@@ -21,7 +22,12 @@ export type Command =
   | { type: 'placeBuilding'; player: PlayerId; villager: number; tile: TileIndex; building: BuildingType }
   /** Send a villager to a building: construct it if unfinished, otherwise work there. */
   | { type: 'work'; player: PlayerId; villager: number; building: number }
-  | { type: 'setManagement'; player: PlayerId; settings: Partial<Management> };
+  | { type: 'setManagement'; player: PlayerId; settings: Partial<Management> }
+  | { type: 'train'; player: PlayerId; villager: number; building: number }
+  | { type: 'setSoldier'; player: PlayerId; villager: number; soldier: boolean }
+  | { type: 'garrison'; player: PlayerId; villager: number; building: number }
+  /** Pick the tech or policy to research next (null clears it). */
+  | { type: 'setResearch'; player: PlayerId; research: string | null };
 
 export const MIN_START_DISTANCE = 10;
 
@@ -53,8 +59,9 @@ export function validatePlacement(state: GameState, player: Player, tile: TileIn
   if (def.territory === 'connected' && !connectsToTerritory(state, player.id, tile, def.territoryRadius)) {
     return '國土建築必須與現有國土相連';
   }
-  if (def.territory === 'near' && distanceToTerritory(state, player.id, tile) > BALANCE.nonTerritoryBuildingMaxDistance) {
-    return `只能蓋在國土內或國土外 ${BALANCE.nonTerritoryBuildingMaxDistance} 格內`;
+  const maxOut = def.maxOutsideDistance ?? BALANCE.nonTerritoryBuildingMaxDistance;
+  if (def.territory === 'near' && distanceToTerritory(state, player.id, tile) > maxOut) {
+    return maxOut === 0 ? '只能蓋在國土內' : `只能蓋在國土內或國土外 ${maxOut} 格內`;
   }
   if (!canAfford(player, def.cost)) return `資源不足（需要 ${costText(def.cost)}）`;
   return null;
@@ -86,9 +93,43 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
     return null;
   }
 
+  if (cmd.type === 'setResearch') {
+    if (cmd.research === null) return null;
+    return researchBlocked(player, cmd.research);
+  }
+
   const v = ownVillager(state, cmd.player, cmd.villager);
   if (!v) return '找不到這位村民';
+  if (v.order.kind === 'train' && v.order.paid) return '訓練期間不能做其他事情';
   if (cmd.type === 'stop') return null;
+
+  if (cmd.type === 'setSoldier') {
+    if (cmd.soldier && !BALANCE.villagerLevels[String(v.level)].canEnlist) return 'LV1 村民不能從軍，請先到兵營訓練';
+    return null;
+  }
+
+  const productive = cmd.type === 'gather' || cmd.type === 'work' || cmd.type === 'placeBuilding' || cmd.type === 'train';
+  if (v.soldier && productive) return '士兵不能從事生產工作（可以先解除士兵身分）';
+  if (!v.soldier && cmd.type === 'garrison') return '只有士兵可以駐守';
+
+  if (cmd.type === 'train' || cmd.type === 'garrison') {
+    const b = state.buildings.find((x) => x.id === cmd.building);
+    if (!b || b.owner !== cmd.player) return '找不到這棟建築';
+    if (!isComplete(b)) return '建築還沒蓋好';
+    if (findPath(state, v.tile, b.tile) === null) return '無法抵達該地塊';
+    const def = BUILDINGS[b.type];
+    if (cmd.type === 'train') {
+      if (def.trainingSlots === 0) return `${def.name}不能訓練`;
+      if (v.level >= BALANCE.training.maxLevel) return '已經是最高等級';
+      const trainees = state.villagers.filter((x) => x.id !== v.id && x.order.kind === 'train' && x.order.building === b.id).length;
+      if (trainees >= def.trainingSlots) return `訓練名額已滿（${def.trainingSlots} 人）`;
+      return null;
+    }
+    if (def.garrisonSlots === 0) return `${def.name}不能駐守`;
+    const stationed = state.villagers.filter((x) => x.id !== v.id && x.order.kind === 'garrison' && x.order.building === b.id).length;
+    if (stationed >= def.garrisonSlots) return `駐守名額已滿（${def.garrisonSlots} 人）`;
+    return null;
+  }
 
   if (cmd.type === 'work') {
     const b = state.buildings.find((x) => x.id === cmd.building);
@@ -132,17 +173,7 @@ function startPlayer(state: GameState, player: PlayerId, tile: TileIndex): void 
   const p = getPlayer(state, player);
   p.startTile = tile;
   state.buildings.push({ id: state.nextEntityId++, type: 'camp', owner: player, tile, progress: 1 });
-  for (let i = 0; i < BALANCE.startingVillagers; i++) {
-    state.villagers.push({
-      id: state.nextEntityId++,
-      owner: player,
-      level: 1,
-      tile,
-      path: [],
-      moveProgress: 0,
-      order: { kind: 'idle' },
-    });
-  }
+  for (let i = 0; i < BALANCE.startingVillagers; i++) newVillager(state, player, tile);
   for (const idx of tilesInRadius(state, tile, BALANCE.camp.exploredRadius)) {
     p.knowledge[idx] = Knowledge.Explored;
   }
@@ -168,8 +199,21 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
     Object.assign(getPlayer(state, cmd.player).management, cmd.settings);
     return null;
   }
+  if (cmd.type === 'setResearch') {
+    getPlayer(state, cmd.player).currentResearch = cmd.research;
+    return null;
+  }
 
   const v = ownVillager(state, cmd.player, cmd.villager)!;
+  if (cmd.type === 'setSoldier') {
+    if (v.soldier !== cmd.soldier) {
+      v.soldier = cmd.soldier;
+      v.order = { kind: 'idle' };
+      v.path = [];
+      v.moveProgress = 0;
+    }
+    return null;
+  }
   if (cmd.type === 'stop') {
     v.order = { kind: 'idle' };
     v.path = [];
@@ -186,6 +230,13 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
     state.mapVersion++;
     target = cmd.tile;
     v.order = { kind: 'construct', building: id };
+  } else if (cmd.type === 'train' || cmd.type === 'garrison') {
+    const b = state.buildings.find((x) => x.id === cmd.building)!;
+    target = b.tile;
+    v.order =
+      cmd.type === 'train'
+        ? { kind: 'train', building: b.id, progress: 0, paid: false }
+        : { kind: 'garrison', building: b.id };
   } else if (cmd.type === 'work') {
     const b = state.buildings.find((x) => x.id === cmd.building)!;
     target = b.tile;
@@ -202,6 +253,8 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
   switch (cmd.type) {
     case 'placeBuilding':
     case 'work':
+    case 'train':
+    case 'garrison':
       break;
     case 'explore':
       v.order = { kind: 'explore', target: cmd.tile, progress: 0 };

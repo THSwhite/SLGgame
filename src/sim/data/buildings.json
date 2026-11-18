@@ -1,24 +1,132 @@
 {
   "camp": {
-    "name": "營地", "buildable": false, "cost": {}, "buildSeconds": 0,
-    "placement": "land", "territory": "none", "territoryRadius": 2, "visionRadius": 3,
-    "popCap": 5, "workerSlots": 0, "production": {}
+    "name": "營地",
+    "buildable": false,
+    "cost": {},
+    "buildSeconds": 0,
+    "placement": "land",
+    "territory": "none",
+    "territoryRadius": 2,
+    "visionRadius": 3,
+    "popCap": 5,
+    "workerSlots": 0,
+    "production": {},
+    "trainingSlots": 0,
+    "garrisonSlots": 0
   },
   "farm": {
-    "name": "農田", "buildable": true, "cost": { "wood": 30 }, "buildSeconds": 15,
-    "placement": "farmable", "territory": "near", "territoryRadius": 0, "visionRadius": 1,
-    "popCap": 0, "workerSlots": 2, "production": { "food": 0.8 },
-    "freshWaterBonus": 0.5
+    "name": "農田",
+    "buildable": true,
+    "cost": {
+      "wood": 30
+    },
+    "buildSeconds": 15,
+    "placement": "farmable",
+    "territory": "near",
+    "territoryRadius": 0,
+    "visionRadius": 1,
+    "popCap": 0,
+    "workerSlots": 2,
+    "production": {
+      "food": 0.8
+    },
+    "freshWaterBonus": 0.5,
+    "trainingSlots": 0,
+    "garrisonSlots": 0
   },
   "mine": {
-    "name": "礦場", "buildable": true, "cost": { "wood": 40 }, "buildSeconds": 20,
-    "placement": "land", "territory": "near", "territoryRadius": 0, "visionRadius": 1,
-    "popCap": 0, "workerSlots": 3, "production": { "stone": 0.5, "ore": 0.25 },
-    "nonStoneMultiplier": 0.1
+    "name": "礦場",
+    "buildable": true,
+    "cost": {
+      "wood": 40
+    },
+    "buildSeconds": 20,
+    "placement": "land",
+    "territory": "near",
+    "territoryRadius": 0,
+    "visionRadius": 1,
+    "popCap": 0,
+    "workerSlots": 3,
+    "production": {
+      "stone": 0.5,
+      "ore": 0.25
+    },
+    "nonStoneMultiplier": 0.1,
+    "trainingSlots": 0,
+    "garrisonSlots": 0
   },
   "house": {
-    "name": "民宅", "buildable": true, "cost": { "wood": 60 }, "buildSeconds": 20,
-    "placement": "land", "territory": "connected", "territoryRadius": 1, "visionRadius": 1,
-    "popCap": 5, "workerSlots": 0, "production": {}
+    "name": "民宅",
+    "buildable": true,
+    "cost": {
+      "wood": 60
+    },
+    "buildSeconds": 20,
+    "placement": "land",
+    "territory": "connected",
+    "territoryRadius": 1,
+    "visionRadius": 1,
+    "popCap": 5,
+    "workerSlots": 0,
+    "production": {},
+    "trainingSlots": 0,
+    "garrisonSlots": 0
+  },
+  "barracks": {
+    "name": "兵營",
+    "buildable": true,
+    "cost": {
+      "wood": 80,
+      "stone": 30
+    },
+    "buildSeconds": 30,
+    "placement": "land",
+    "territory": "connected",
+    "territoryRadius": 1,
+    "visionRadius": 1,
+    "popCap": 0,
+    "workerSlots": 0,
+    "production": {},
+    "trainingSlots": 2,
+    "garrisonSlots": 0
+  },
+  "watchtower": {
+    "name": "瞭望塔",
+    "buildable": true,
+    "cost": {
+      "wood": 50,
+      "stone": 40
+    },
+    "buildSeconds": 25,
+    "placement": "land",
+    "territory": "near",
+    "maxOutsideDistance": 1,
+    "territoryRadius": 3,
+    "visionRadius": 4,
+    "popCap": 0,
+    "workerSlots": 0,
+    "production": {},
+    "trainingSlots": 0,
+    "garrisonSlots": 2,
+    "requiresGarrison": true
+  },
+  "research": {
+    "name": "研究所",
+    "buildable": true,
+    "cost": {
+      "wood": 60,
+      "stone": 20
+    },
+    "buildSeconds": 25,
+    "placement": "land",
+    "territory": "near",
+    "territoryRadius": 0,
+    "visionRadius": 1,
+    "popCap": 0,
+    "workerSlots": 2,
+    "production": {},
+    "researchPerWorker": 0.2,
+    "trainingSlots": 0,
+    "garrisonSlots": 0
   }
 }

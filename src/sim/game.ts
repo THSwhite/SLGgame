@@ -4,6 +4,9 @@ import { generateMap } from './mapgen';
 import { runFood } from './systems/food';
 import { runJobs } from './systems/jobs';
 import { runPopulation } from './systems/population';
+import { runLoyalty } from './systems/loyalty';
+import { runResearch } from './systems/research';
+import { updateTerritory } from './systems/territory';
 import { updateVision } from './systems/vision';
 import { Knowledge, type GameState } from './types';
 
@@ -48,6 +51,10 @@ export function createGame(setup: GameSetup): GameState {
         foodProtection: true,
       },
       popProgress: 0,
+      researched: [],
+      policies: [],
+      currentResearch: null,
+      researchPoints: 0,
     })),
     villagers: [],
     buildings: [],
@@ -67,8 +74,11 @@ export function stepGame(state: GameState, commands: Command[] = []): Array<stri
   if (state.phase !== 'playing') return results;
   state.tick++;
   runJobs(state);
+  updateTerritory(state);
   runFood(state);
   runPopulation(state);
+  runResearch(state);
+  runLoyalty(state);
   updateVision(state);
   return results;
 }

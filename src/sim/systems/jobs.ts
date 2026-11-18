@@ -1,5 +1,6 @@
 import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES } from '../data';
-import { buildingRatePerWorker, workEfficiency, workersAt } from '../economy';
+import { buildingRatePerWorker, gatherRate, researchRatePerWorker, workEfficiency, workersAt } from '../economy';
+import { getModifiers } from '../modifiers';
 import { moveCost } from '../pathfinding';
 import { getPlayer, logEvent } from '../state';
 import { Knowledge, type Building, type GameState, type Villager } from '../types';
@@ -39,7 +40,8 @@ function stepVillager(state: GameState, v: Villager): void {
 
   if (v.path.length > 0) {
     const next = v.path[0];
-    v.moveProgress += eff / (BALANCE.moveSecondsPerTile * tps * moveCost(state, next));
+    const speed = v.soldier ? getModifiers(getPlayer(state, v.owner)).soldierSpeed : 1;
+    v.moveProgress += (eff * speed) / (BALANCE.moveSecondsPerTile * tps * moveCost(state, next));
     if (v.moveProgress >= 1) {
       v.tile = next;
       v.path.shift();
@@ -77,7 +79,7 @@ function stepVillager(state: GameState, v: Villager): void {
         v.order = { kind: 'idle' };
         return;
       }
-      const amount = Math.min(deposit.amount, (BALANCE.gatherPerSecond[order.resource] * eff) / tps);
+      const amount = Math.min(deposit.amount, (gatherRate(getPlayer(state, v.owner), order.resource) * eff) / tps);
       deposit.amount -= amount;
       getPlayer(state, v.owner).stock[order.resource] += amount;
       if (deposit.amount <= 1e-9) {
@@ -94,7 +96,8 @@ function stepVillager(state: GameState, v: Villager): void {
         v.order = b && BUILDINGS[b.type].workerSlots > workersAt(state, b.id).length ? { kind: 'work', building: b.id } : { kind: 'idle' };
         return;
       }
-      b.progress += eff / (BUILDINGS[b.type].buildSeconds * tps);
+      const speed = getModifiers(getPlayer(state, v.owner)).buildSpeed;
+      b.progress += (eff * speed) / (BUILDINGS[b.type].buildSeconds * tps);
       if (b.progress >= 1) completeBuilding(state, b);
       return;
     }
@@ -106,6 +109,7 @@ function stepVillager(state: GameState, v: Villager): void {
       }
       const rates = buildingRatePerWorker(state, b);
       const player = getPlayer(state, v.owner);
+      player.researchPoints += (researchRatePerWorker(state, b) * eff) / tps;
       const tile = state.tiles[b.tile];
       for (const r of RESOURCE_TYPES) {
         let amount = (rates[r] * eff) / tps;
@@ -124,6 +128,33 @@ function stepVillager(state: GameState, v: Villager): void {
         }
         player.stock[r] += amount;
       }
+      return;
+    }
+    case 'train': {
+      const b = findBuilding(state, order.building);
+      if (!b || !isComplete(b) || v.level >= BALANCE.training.maxLevel) {
+        v.order = { kind: 'idle' };
+        return;
+      }
+      const player = getPlayer(state, v.owner);
+      if (!order.paid) {
+        // Wait at the barracks until the food for training is available.
+        if (player.stock.food < BALANCE.training.foodCost) return;
+        player.stock.food -= BALANCE.training.foodCost;
+        order.paid = true;
+      }
+      // Training improves the body, so it is not slowed by the trainee's own efficiency.
+      order.progress += getModifiers(player).trainSpeed / (BALANCE.training.seconds * tps);
+      if (order.progress >= 1) {
+        v.level++;
+        v.order = { kind: 'idle' };
+        logEvent(state, v.owner, `村民 #${v.id} 訓練完成，升到 LV${v.level}（可以從軍）`);
+      }
+      return;
+    }
+    case 'garrison': {
+      const b = findBuilding(state, order.building);
+      if (!b || !isComplete(b) || b.owner !== v.owner || !v.soldier) v.order = { kind: 'idle' };
       return;
     }
   }

@@ -80,3 +80,17 @@ button.active { background: var(--accent); color: #1a1a1a; }
 .build-row .cost { color: var(--muted); font-size: 12px; }
 .build-row .reason { grid-column: 1 / -1; color: #ffab91; font-size: 11px; }
 .tile-panel { max-height: calc(100% - 200px); overflow: auto; }
+
+.warn { color: #ffb74d; }
+.selected-villager { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
+.research-panel { top: 56px; left: 50%; transform: translateX(-50%); width: min(640px, calc(100% - 16px)); max-height: calc(100% - 72px); overflow: auto; z-index: 3; }
+.research-panel h3 { font-size: 13px; margin: 12px 0 6px; color: var(--accent); }
+.research-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
+.research-item { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+.research-item.done { opacity: 0.55; }
+.research-item.selected { border-color: var(--accent); background: rgba(255, 202, 40, 0.1); }
+.research-head { display: flex; justify-content: space-between; gap: 6px; }
+.research-head .cost { color: var(--muted); font-size: 12px; }
+.research-actions { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+.research-actions .reason { color: #ffab91; font-size: 11px; }
+.group-name { color: var(--muted); margin: 6px 0 4px; }

@@ -299,6 +299,24 @@ export class MapRenderer {
         }
         g.circle(cx + 11, cy - 9, 3).fill({ color: pc, alpha });
         break;
+      case 'barracks':
+        g.rect(cx - 11, cy - 6, 22, 13).fill({ color: 0x8d6e63, alpha }).stroke(line);
+        g.rect(cx - 11, cy - 9, 22, 4).fill({ color: pc, alpha }).stroke(line);
+        g.moveTo(cx - 5, cy + 5).lineTo(cx + 5, cy - 3).stroke({ color: 0xeeeeee, width: 2, alpha });
+        g.moveTo(cx + 5, cy + 5).lineTo(cx - 5, cy - 3).stroke({ color: 0xeeeeee, width: 2, alpha });
+        break;
+      case 'watchtower': {
+        const active = done && state.villagers.some((v) => v.order.kind === 'garrison' && v.order.building === b.id && v.path.length === 0);
+        g.poly([cx - 6, cy + 9, cx - 3, cy - 10, cx + 3, cy - 10, cx + 6, cy + 9]).fill({ color: 0xa1887f, alpha }).stroke(line);
+        g.rect(cx - 7, cy - 14, 14, 5).fill({ color: active ? pc : 0x757575, alpha }).stroke(line);
+        if (done && !active) g.circle(cx + 9, cy - 12, 4).fill(0x212121).stroke({ color: 0xffca28, width: 1.5 });
+        break;
+      }
+      case 'research':
+        g.rect(cx - 10, cy - 4, 20, 11).fill({ color: 0xe3f2fd, alpha }).stroke(line);
+        g.poly([cx - 12, cy - 4, cx, cy - 13, cx + 12, cy - 4]).fill({ color: 0x5c6bc0, alpha }).stroke(line);
+        g.circle(cx, cy + 1, 3).fill({ color: pc, alpha });
+        break;
       case 'mine':
         g.poly([cx - 12, cy + 7, cx, cy - 11, cx + 12, cy + 7]).fill({ color: 0x616161, alpha }).stroke(line);
         g.poly([cx - 4, cy + 7, cx - 4, cy + 1, cx, cy - 2, cx + 4, cy + 1, cx + 4, cy + 7]).fill({ color: 0x212121, alpha });
@@ -330,7 +348,19 @@ export class MapRenderer {
       y += state.buildings.some((b) => b.tile === v.tile) && v.path.length === 0 ? -15 : -2;
       const selected = this.controller.selection.villager === v.id;
       if (selected) g.circle(x, y, 8.5).stroke({ color: 0xffffff, width: 2.5 });
-      g.circle(x, y, 6).fill(hex(state.players[v.owner].color)).stroke({ color: 0x1a1a1a, width: 1.5 });
+      const color = hex(state.players[v.owner].color);
+      if (v.soldier) {
+        g.poly([x, y - 7, x + 7, y, x, y + 7, x - 7, y]).fill(color).stroke({ color: 0xffffff, width: 1.5 });
+      } else {
+        g.circle(x, y, v.level >= 2 ? 6.5 : 6).fill(color).stroke({ color: v.level >= 2 ? 0xffd54f : 0x1a1a1a, width: 1.5 });
+      }
+      if (v.owner === me.id && v.loyalty < 60) {
+        g.poly([x + 4, y - 13, x + 9, y - 5, x - 1, y - 5]).fill(v.loyalty < 30 ? 0xff5252 : 0xffa726);
+      }
+      if (v.order.kind === 'train' && v.path.length === 0) {
+        g.rect(x - 8, y - 14, 16, 3).fill(0x222222);
+        g.rect(x - 8, y - 14, 16 * v.order.progress, 3).fill(0xffd54f);
+      }
       if (v.order.kind === 'explore' && v.path.length === 0) {
         g.rect(x - 8, y - 14, 16, 3).fill(0x222222);
         g.rect(x - 8, y - 14, 16 * v.order.progress, 3).fill(0x4fc3f7);

@@ -3,7 +3,16 @@ import { GameController, SPEEDS, type Speed } from '../client/controller';
 import { MapRenderer } from '../client/renderer';
 import { BALANCE, BUILDING_TYPES, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES, TERRAIN, type ResourceType } from '../sim/data';
 import { validateCommand } from '../sim/commands';
-import { buildingRatePerWorker, hasFreshWaterNearby, incomePerMinute, workersAt } from '../sim/economy';
+import {
+  buildingRatePerWorker,
+  hasFreshWaterNearby,
+  incomePerMinute,
+  researchPerMinute,
+  researchRatePerWorker,
+  workersAt,
+} from '../sim/economy';
+import { garrisonOf } from '../sim/systems/territory';
+import { ResearchPanel } from './ResearchPanel';
 import { foodConsumptionPerMinute } from '../sim/systems/food';
 import { populationBlocked, populationCap, populationCount } from '../sim/systems/population';
 import { Knowledge, type GameState } from '../sim/types';
@@ -23,7 +32,13 @@ function smartCommand(c: GameController, tile: number) {
     return;
   }
   const building = s.buildings.find((b) => b.tile === tile && b.owner === me.id);
-  if (building && (building.progress < 1 || BUILDINGS[building.type].workerSlots > 0)) {
+  const villager = s.villagers.find((v) => v.id === vid);
+  const def = building ? BUILDINGS[building.type] : null;
+  if (building && def && building.progress >= 1 && def.garrisonSlots > 0 && villager?.soldier) {
+    c.issue({ type: 'garrison', player: me.id, villager: vid, building: building.id });
+  } else if (building && def && building.progress >= 1 && def.trainingSlots > 0 && !villager?.soldier) {
+    c.issue({ type: 'train', player: me.id, villager: vid, building: building.id });
+  } else if (building && def && (building.progress < 1 || def.workerSlots > 0)) {
     c.issue({ type: 'work', player: me.id, villager: vid, building: building.id });
   } else if (me.knowledge[tile] !== Knowledge.Explored) c.issue({ type: 'explore', player: me.id, villager: vid, tile });
   else if (s.tiles[tile].deposits.length > 0) c.issue({ type: 'gather', player: me.id, villager: vid, tile });
@@ -37,6 +52,7 @@ export function App() {
   const rendererRef = useRef<MapRenderer | null>(null);
   const [, refresh] = useReducer((x: number) => x + 1, 0);
   const [showManagement, setShowManagement] = useState(false);
+  const [showResearch, setShowResearch] = useState(false);
 
   useEffect(() => {
     const unsub = controller.subscribe(refresh);
@@ -86,6 +102,7 @@ export function App() {
       else if (e.key === '2') controller.setSpeed(2);
       else if (e.key === '3') controller.setSpeed(5);
       else if (e.key === 'm' || e.key === 'M') setShowManagement((x) => !x);
+      else if (e.key === 'r' || e.key === 'R') setShowResearch((x) => !x);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -101,7 +118,13 @@ export function App() {
         <StartOverlay controller={controller} onStarted={(t) => rendererRef.current?.centerOn(t)} />
       ) : (
         <>
-          <TopBar controller={controller} state={s} onManagement={() => setShowManagement((x) => !x)} />
+          <TopBar
+            controller={controller}
+            state={s}
+            onManagement={() => setShowManagement((x) => !x)}
+            onResearch={() => setShowResearch((x) => !x)}
+          />
+          {showResearch && <ResearchPanel controller={controller} state={s} onClose={() => setShowResearch(false)} />}
           {showManagement && <ManagementPanel controller={controller} state={s} onClose={() => setShowManagement(false)} />}
           <VillagerPanel controller={controller} state={s} onFocus={(t) => rendererRef.current?.centerOn(t)} />
           <TilePanel controller={controller} state={s} />
@@ -145,7 +168,17 @@ function fmtRate(n: number): string {
   return `${n >= 0 ? '+' : ''}${n.toFixed(1)}/分`;
 }
 
-function TopBar({ controller, state, onManagement }: { controller: GameController; state: GameState; onManagement: () => void }) {
+function TopBar({
+  controller,
+  state,
+  onManagement,
+  onResearch,
+}: {
+  controller: GameController;
+  state: GameState;
+  onManagement: () => void;
+  onResearch: () => void;
+}) {
   const me = state.players[controller.localPlayer];
   const income = incomePerMinute(state, me);
   const net: Record<ResourceType, number> = { ...income, food: income.food - foodConsumptionPerMinute(state, me) };
@@ -166,7 +199,13 @@ function TopBar({ controller, state, onManagement }: { controller: GameControlle
           )}
         </div>
       ))}
+      <div className="res">
+        <span className="res-name">研究</span>
+        <span className="res-val">{Math.floor(me.researchPoints)}</span>
+        {researchPerMinute(state, me) > 0 && <span className="res-delta pos">{fmtRate(researchPerMinute(state, me))}</span>}
+      </div>
       <button onClick={onManagement}>管理 (M)</button>
+      <button onClick={onResearch}>研究 (R)</button>
       <div className="spacer" />
       <div className="clock">⏱ {formatTime(state.tick)}</div>
       <div className="speeds">
@@ -233,6 +272,32 @@ function ManagementPanel({ controller, state, onClose }: { controller: GameContr
   );
 }
 
+function SelectedVillager({ controller, state }: { controller: GameController; state: GameState }) {
+  const v = state.villagers.find((x) => x.id === controller.selection.villager && x.owner === controller.localPlayer);
+  if (!v) return null;
+  const canEnlist = BALANCE.villagerLevels[String(v.level)].canEnlist;
+  return (
+    <div className="selected-villager">
+      <div>
+        村民 #{v.id}：LV{v.level}　{v.soldier ? '士兵' : '平民'}　忠誠度 {Math.floor(v.loyalty)}
+      </div>
+      <div className="actions">
+        {v.soldier ? (
+          <button onClick={() => controller.issue({ type: 'setSoldier', player: v.owner, villager: v.id, soldier: false })}>解除士兵</button>
+        ) : (
+          <button
+            disabled={!canEnlist}
+            title={canEnlist ? '' : 'LV1 不能從軍，需先到兵營訓練'}
+            onClick={() => controller.issue({ type: 'setSoldier', player: v.owner, villager: v.id, soldier: true })}
+          >
+            設為士兵
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function VillagerPanel({
   controller,
   state,
@@ -268,15 +333,17 @@ function VillagerPanel({
           onDoubleClick={() => onFocus(v.tile)}
         >
           <span>
-            #{v.id} <small>LV{v.level}</small>
+            {v.soldier ? '⚔' : ''}#{v.id} <small>LV{v.level}</small>
+            {v.loyalty < 60 && <small className={v.loyalty < 30 ? 'neg' : 'warn'}> 忠誠{Math.floor(v.loyalty)}</small>}
           </span>
           <span className="status">{villagerStatus(state, v)}</span>
         </div>
       ))}
+      <SelectedVillager controller={controller} state={state} />
       <div className="hint">
         左鍵：選取 ／ 右鍵：對選取的村民下指令（自己的建築→建造或工作、未探索→探索、有資源→採集、其他→移動）
         <br />
-        空白鍵：暫停 ／ 1 2 3：速度 ／ M：管理
+        空白鍵：暫停 ／ 1 2 3：速度 ／ M：管理 ／ R：研究
       </div>
     </div>
   );
@@ -314,9 +381,40 @@ function BuildingInfo({ controller, state, tile }: { controller: GameController;
                 .join('、') || '無'}
             </div>
           )}
+          {def.researchPerWorker !== undefined && (
+            <div>
+              研究員 {workers.length}/{def.workerSlots}　每人 {(researchRatePerWorker(state, b) * 60).toFixed(1)} 點/分
+            </div>
+          )}
+          {def.trainingSlots > 0 && (
+            <div>
+              訓練中 {state.villagers.filter((v) => v.order.kind === 'train' && v.order.building === b.id).length}/{def.trainingSlots}　
+              每次 {BALANCE.training.seconds} 秒、糧食 {BALANCE.training.foodCost}，升到 LV2
+            </div>
+          )}
+          {def.garrisonSlots > 0 && (
+            <div className={garrisonOf(state, b).length === 0 ? 'neg' : 'pos'}>
+              駐軍 {garrisonOf(state, b).length}/{def.garrisonSlots}
+              {garrisonOf(state, b).length === 0 ? '：沒有駐軍，不提供視野與國土' : '：提供視野與國土'}
+            </div>
+          )}
           {b.type === 'farm' && hasFreshWaterNearby(state, b.tile) && <div className="pos">鄰近淡水：產量 +{(def.freshWaterBonus ?? 0) * 100}%</div>}
           {b.type === 'mine' && state.tiles[b.tile].terrain !== 'stone' && <div className="neg">不在石地上：產量極低</div>}
         </>
+      )}
+      {mine && vid !== null && b.progress >= 1 && def.trainingSlots > 0 && (
+        <div className="actions">
+          <button onClick={() => controller.issue({ type: 'train', player: controller.localPlayer, villager: vid, building: b.id })}>
+            送村民 #{vid} 去訓練
+          </button>
+        </div>
+      )}
+      {mine && vid !== null && b.progress >= 1 && def.garrisonSlots > 0 && (
+        <div className="actions">
+          <button onClick={() => controller.issue({ type: 'garrison', player: controller.localPlayer, villager: vid, building: b.id })}>
+            派士兵 #{vid} 駐守
+          </button>
+        </div>
       )}
       {mine && vid !== null && (b.progress < 1 || def.workerSlots > 0) && (
         <div className="actions">

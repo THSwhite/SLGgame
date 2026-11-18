@@ -22,6 +22,11 @@ export function villagerStatus(state: GameState, v: Villager): string {
       if (o.kind === 'construct') return travelling ? `前往建造${name}` : `建造${name} ${Math.floor((b?.progress ?? 0) * 100)}%`;
       return travelling ? `前往${name}` : `在${name}工作`;
     }
+    case 'train':
+      if (travelling) return '前往兵營';
+      return o.paid ? `訓練中 ${Math.floor(o.progress * 100)}%` : '等待訓練糧食';
+    case 'garrison':
+      return travelling ? '前往駐守' : '駐守瞭望塔';
   }
 }
 

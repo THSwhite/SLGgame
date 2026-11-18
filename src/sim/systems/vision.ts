@@ -1,10 +1,9 @@
-import { BALANCE, BUILDINGS } from '../data';
+import { BALANCE } from '../data';
 import { tilesInRadius } from '../hex';
-import type { Building, GameState } from '../types';
+import type { GameState } from '../types';
+import { buildingVisionRadius } from './territory';
 
-function buildingVision(b: Building): number {
-  return BUILDINGS[b.type].visionRadius;
-}
+
 
 /** Recompute what each player currently sees. Territory is always in vision. */
 export function updateVision(state: GameState): void {
@@ -19,7 +18,7 @@ export function updateVision(state: GameState): void {
     }
     for (const b of state.buildings) {
       if (b.owner !== player.id) continue;
-      for (const idx of tilesInRadius(state, b.tile, buildingVision(b))) next[idx] = 1;
+      for (const idx of tilesInRadius(state, b.tile, buildingVisionRadius(state, b))) next[idx] = 1;
     }
     let changed = next.length !== player.visible.length;
     for (let i = 0; !changed && i < next.length; i++) changed = next[i] !== player.visible[i];

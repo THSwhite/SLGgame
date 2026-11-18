@@ -1,6 +1,8 @@
 import terrainJson from './terrain.json';
 import balanceJson from './balance.json';
 import buildingsJson from './buildings.json';
+import techJson from './tech.json';
+import policiesJson from './policies.json';
 
 export type ResourceType = 'food' | 'wood' | 'stone' | 'ore';
 export const RESOURCE_TYPES: readonly ResourceType[] = ['food', 'wood', 'stone', 'ore'];
@@ -58,6 +60,17 @@ export interface Balance {
   };
   /** How far outside own territory a non-territory building may be placed. */
   nonTerritoryBuildingMaxDistance: number;
+  training: { seconds: number; foodCost: number; maxLevel: number };
+  loyalty: {
+    max: number;
+    start: number;
+    decayPerSecond: number;
+    recoverPerSecond: number;
+    threshold: number;
+    defectChancePerSecond: number;
+    subvertRange: number;
+    afterDefection: number;
+  };
 }
 
 export const BALANCE = balanceJson as Balance;
@@ -84,7 +97,46 @@ export interface BuildingDef {
   production: Partial<Record<ResourceType, number>>;
   freshWaterBonus?: number;
   nonStoneMultiplier?: number;
+  /** Overrides nonTerritoryBuildingMaxDistance for 'near' buildings. */
+  maxOutsideDistance?: number;
+  trainingSlots: number;
+  garrisonSlots: number;
+  /** Territory and vision only work while soldiers are garrisoned. */
+  requiresGarrison?: boolean;
+  /** Research points per second per worker. */
+  researchPerWorker?: number;
 }
 
 export const BUILDINGS = buildingsJson as Record<BuildingType, BuildingDef>;
 export const BUILDING_TYPES = Object.keys(BUILDINGS) as BuildingType[];
+
+/** Additive effect values; see DEFAULT_MODIFIERS in modifiers.ts. */
+export type Effects = Record<string, number>;
+
+export interface TechDef {
+  name: string;
+  cost: number;
+  requires: string[];
+  description: string;
+  effects: Effects;
+}
+export const TECHS = techJson as Record<string, TechDef>;
+
+export interface PolicyDef {
+  name: string;
+  cost: number;
+  description: string;
+  effects: Effects;
+}
+export interface PolicyGroupDef {
+  name: string;
+  options: Record<string, PolicyDef>;
+}
+export const POLICY_GROUPS = policiesJson as Record<string, PolicyGroupDef>;
+
+export function findPolicy(id: string): { group: string; def: PolicyDef } | null {
+  for (const [group, g] of Object.entries(POLICY_GROUPS)) {
+    if (g.options[id]) return { group, def: g.options[id] };
+  }
+  return null;
+}

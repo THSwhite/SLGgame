@@ -1,0 +1,13 @@
+{
+  "agriculture":    { "name": "農耕技術", "cost": 40,  "requires": [],              "description": "農田產量 +25%",                 "effects": { "farmRate": 0.25 } },
+  "irrigation":     { "name": "灌溉技術", "cost": 80,  "requires": ["agriculture"], "description": "農田產量再 +25%",               "effects": { "farmRate": 0.25 } },
+  "tools":          { "name": "改良工具", "cost": 40,  "requires": [],              "description": "徒手採集糧食、木材、石材 +20%",  "effects": { "gatherFood": 0.2, "gatherWood": 0.2, "gatherStone": 0.2 } },
+  "mining":         { "name": "採礦技術", "cost": 60,  "requires": [],              "description": "礦場產量 +30%",                 "effects": { "mineRate": 0.3 } },
+  "deepMining":     { "name": "深層採礦", "cost": 100, "requires": ["mining"],      "description": "礦場產量再 +30%，採集礦石 +30%", "effects": { "mineRate": 0.3, "gatherOre": 0.3 } },
+  "masonry":        { "name": "建築學",   "cost": 50,  "requires": [],              "description": "建造速度 +30%",                 "effects": { "buildSpeed": 0.3 } },
+  "drill":          { "name": "體能訓練", "cost": 60,  "requires": [],              "description": "兵營訓練速度 +30%",             "effects": { "trainSpeed": 0.3 } },
+  "optics":         { "name": "瞭望技術", "cost": 70,  "requires": [],              "description": "瞭望塔國土與視野 +1 格",         "effects": { "towerRadiusBonus": 1, "towerVisionBonus": 1 } },
+  "administration": { "name": "行政管理", "cost": 70,  "requires": [],              "description": "國土外村民的忠誠度下降速度 -50%", "effects": { "loyaltyDecay": -0.5 } },
+  "writing":        { "name": "文字",     "cost": 40,  "requires": [],              "description": "研究速度 +25%",                 "effects": { "researchRate": 0.25 } },
+  "diplomacy":      { "name": "外交學",   "cost": 60,  "requires": ["writing"],     "description": "領事館期限 +50%，貿易收入 +25%", "effects": { "consulateDeadline": 0.5, "tradeIncome": 0.25 } }
+}
