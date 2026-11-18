@@ -32,7 +32,9 @@ export type Command =
   | { type: 'setResearch'; player: PlayerId; research: string | null }
   | { type: 'diplomacy'; player: PlayerId; target: PlayerId; action: DiplomacyAction }
   /** Soldiers march to a tile and fight enemies (at war) there. */
-  | { type: 'attack'; player: PlayerId; villager: number; tile: TileIndex };
+  | { type: 'attack'; player: PlayerId; villager: number; tile: TileIndex }
+  /** System command (multiplayer server only): a player disconnected, AI takes over. */
+  | { type: 'playerLeft'; player: PlayerId };
 
 export type DiplomacyAction =
   | 'proposeRelations'
@@ -168,6 +170,7 @@ function applyDiplomacy(state: GameState, me: PlayerId, target: PlayerId, action
 export function validateCommand(state: GameState, cmd: Command): string | null {
   const player = state.players.find((p) => p.id === cmd.player);
   if (!player) return '未知的玩家';
+  if (cmd.type === 'playerLeft') return player.isAI ? '已經由 AI 控制' : null;
 
   if (cmd.type === 'chooseStart') {
     if (state.phase !== 'choosingStart') return '已經開局了';
@@ -304,6 +307,17 @@ function startPlayer(state: GameState, player: PlayerId, tile: TileIndex): void 
 export function applyCommand(state: GameState, cmd: Command): string | null {
   const error = validateCommand(state, cmd);
   if (error) return error;
+
+  if (cmd.type === 'playerLeft') {
+    const p = getPlayer(state, cmd.player);
+    p.isAI = true;
+    p.ai = { aggression: 0.5, openness: 0.5, expansion: 0.5 };
+    for (const other of state.players) logEvent(state, other.id, `${p.name} 的玩家離開了，改由 AI 接手`);
+    if (state.phase === 'choosingStart' && state.players.every((pl) => pl.startTile !== -1 || pl.isAI)) {
+      for (const [ai, tile] of chooseAIStarts(state)) startPlayer(state, ai, tile);
+    }
+    return null;
+  }
 
   if (cmd.type === 'chooseStart') {
     startPlayer(state, cmd.player, cmd.tile);

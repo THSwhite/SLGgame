@@ -1,15 +1,12 @@
 import { BALANCE } from '../sim/data';
+import { NATIONS } from '../net/protocol';
 import { applyCommand, validateCommand, type Command } from '../sim/commands';
 import { createGame, stepGame, TEST_MAP_SEED } from '../sim/game';
 import type { GameState, PlayerId } from '../sim/types';
 
 export const SPEEDS = [0, 1, 2, 5] as const;
 export const MAX_AI = 3;
-const AI_NATIONS = [
-  { name: '藍月王國', color: '#1e88e5' },
-  { name: '綠野聯邦', color: '#43a047' },
-  { name: '金沙帝國', color: '#fdd835' },
-];
+const AI_NATIONS = NATIONS.slice(1);
 export type Speed = (typeof SPEEDS)[number];
 
 export interface Selection {
@@ -36,14 +33,15 @@ export function randomSeed(): number {
  */
 export class GameController {
   state: GameState;
-  readonly localPlayer: PlayerId = 0;
+  localPlayer: PlayerId = 0;
+  readonly isNetwork: boolean = false;
   speed: Speed = 1;
   selection: Selection = { villager: null, tile: null, group: [] };
   options: GameOptions;
   lastError: string | null = null;
 
-  private pending: Command[] = [];
-  private accumulator = 0;
+  protected pending: Command[] = [];
+  protected accumulator = 0;
   private listeners = new Set<() => void>();
 
   constructor(options: Partial<GameOptions> = {}) {
@@ -148,7 +146,7 @@ export class GameController {
     return () => this.listeners.delete(fn);
   }
 
-  notify() {
+  notify(): void {
     for (const fn of this.listeners) fn();
   }
 }

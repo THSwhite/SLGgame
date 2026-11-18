@@ -1,44 +1,168 @@
 # SLG 國戰
 
-即時制的 2D 國戰策略遊戲：探索、經營、國土擴張、外交與戰爭。設計內容見 [`docs/GDD.md`](docs/GDD.md)。
+即時制（可暫停、可加速）的 2D 國戰策略遊戲：探索未知的地圖、經營資源、擴張國土，與其他國家建交或開戰。
+支援單人對 AI，以及多人連線（最多 4 個國家，玩家加 AI）。
 
-## 開始
+- 遊戲設計與規則的完整說明：[`docs/GDD.md`](docs/GDD.md)
+- 給 AI（Claude Code）看的架構說明：[`CLAUDE.md`](CLAUDE.md)
+
+---
+
+## 1. 怎麼執行
+
+需要先安裝 [Node.js](https://nodejs.org/)，版本 22.18 以上（選 LTS 版本）。
+
 ```bash
-npm install
-npm run dev      # http://localhost:5173
-npm test         # 模擬核心的自動測試
-npm run build
+npm install        # 第一次執行前，安裝套件
 ```
 
-## 操作
-- 拖曳：平移地圖；滾輪：縮放
-- 左鍵：選取地塊或村民（點同一格可切換該格上的村民）
-- 右鍵：對選取的村民下指令（自己的建築 → 建造或工作、未探索 → 探索、有資源 → 採集、其他 → 移動）
-- 選取村民後點地塊：右側面板可以下令或建造（農田、礦場、民宅）
-- `M`：管理選單（人口生產速度、糧食保護）
-- `R`：研究（科技樹與國策）
-- `D`：外交（建交、停戰、宣戰；有新提議時按鈕會變紅）
-- 戰鬥：宣戰後，選士兵（Shift＋點清單可多選，或按「選取全部士兵」），右鍵點敵方單位或建築就會進攻
-- 開局可以選 AI 數量、地圖大小，以及隨機地圖
-- 選取村民後，左側面板可以把 LV2 村民設為士兵；右鍵點兵營 → 訓練，士兵右鍵點瞭望塔 → 駐守
-- 空白鍵：暫停；`1` `2` `3`：1× / 2× / 5× 速度
+| 想做什麼 | 指令 | 說明 |
+|---|---|---|
+| 開發、自己測試 | `npm run dev` | 打開 http://localhost:5173 。改了程式或數值，存檔後瀏覽器會自動更新 |
+| 開發時測多人 | 另開一個終端機執行 `npm run server` | 多人伺服器在 port 8787。主選單的「伺服器」欄位預設就是這個位址 |
+| 正式架站 | `npm run serve` | 先打包，再用同一個伺服器提供網頁和多人連線（port 8787，可以用 `PORT=9000 npm run serve` 修改） |
+| 執行自動測試 | `npm test` | 修改規則或數值後，建議跑一次 |
+| 檢查型別 | `npm run typecheck` | |
 
-## 架構
+### 多人連線怎麼玩
+1. 有一台電腦執行 `npm run serve`（或開發時用 `npm run server`）。
+2. 所有玩家用瀏覽器打開那台電腦的網址，例如 `http://192.168.1.10:8787`。
+3. 一位玩家按「建立房間」，把 4 位數的**房號**告訴其他人，其他人輸入房號後按「加入」。
+4. 房主設定 AI 數量、地圖大小，然後按「開始遊戲」。
+5. 遊戲中途有人離線時，他的國家會自動改由 AI 接手。
+
+> 要讓外部網路的朋友連進來，需要把 port 開放到網際網路（路由器的 port forwarding，或部署到雲端主機）。
+
+---
+
+## 2. 操作
+
+| 操作 | 說明 |
+|---|---|
+| 拖曳 / 滾輪 | 平移地圖 / 縮放 |
+| 左鍵 | 選取地塊或村民（點同一格可以切換這格上的不同村民） |
+| 右鍵 | 對選取的村民下指令，會自動判斷要做什麼：自己的建築 → 建造或工作（兵營 → 訓練；士兵點瞭望塔 → 駐守）、未探索 → 探索、有資源 → 採集、敵方（戰爭中）→ 進攻、其他 → 移動 |
+| 右側面板 | 選取村民後點地塊，可以下指令，也可以建造建築 |
+| 左側清單 | Shift＋點擊可以多選；「選取全部士兵」可以一次指揮整支軍隊 |
+| `M` | 管理：人口生產速度、糧食保護 |
+| `R` | 研究：科技樹與國策 |
+| `D` | 外交：建交、斷交、宣戰、停戰（有新提議時按鈕會變紅） |
+| 空白鍵 / `1` `2` `3` | 暫停 / 1× 2× 5× 速度 |
+
+---
+
+## 3. 調整參數（不用改程式）
+
+所有遊戲數值都在 **`src/sim/data/`** 裡的 JSON 檔。改完存檔，`npm run dev` 會自動重新載入。
+
+### 3.1 `balance.json`：整體平衡
+
+| 欄位 | 意思 | 目前的值 |
+|---|---|---|
+| `ticksPerSecond` | 遊戲每秒計算幾次。**不要改**，改了所有時間都會跟著變 | 10 |
+| `map.width` / `map.height` | 預設地圖大小 | 48 × 32 |
+| `mapSizes` | 開局可以選的地圖大小（小／中／大），可以新增 | |
+| `exploreSeconds` | 探索一塊地需要幾秒 | 5 |
+| `moveSecondsPerTile` | 在一般地形上走一格需要幾秒（會再乘以地形的移動耗費） | 1.5 |
+| `gatherPerSecond` | 徒手採集速度（每秒） | 糧 1、木 0.8、石 0.6、礦 0.4 |
+| `startingVillagers` / `startingStock` | 開局的村民數量 / 資源 | 3 人；糧 100、木 50 |
+| `villagerLevels` | 各等級的糧耗（每分鐘）、能否從軍、工作效率 | LV1：6 糧、不可從軍、×1.0；LV2：9 糧、可從軍、×1.3 |
+| `warSoldierFoodMultiplier` | 戰時士兵的糧耗倍率（戰爭懲罰） | 1.25 |
+| `starvingWorkEfficiency` | 糧食吃完時的工作效率 | 0.5 |
+| `population` | 新村民消耗的糧食、生產間隔（預設、最小、最大秒數） | 25 糧；30 秒（10～120） |
+| `nonTerritoryBuildingMaxDistance` | 非國土建築最遠可以蓋在國土外幾格 | 2 |
+| `training` | 兵營訓練的秒數、糧食、最高等級 | 60 秒、20 糧、LV2 |
+| `loyalty` | 忠誠度：下降／恢復速度、叛離門檻與機率、策反距離 | 見檔案 |
+| `diplomacy` | 提議的有效時間、領事館期限、冷卻時間、貿易收入、研究交流加成 | 60 秒、180 秒、300 秒…… |
+| `ai.thinkEverySeconds` | AI 多久做一次決定 | 2 |
+| `combat` | 士兵／平民的攻擊力、各等級生命值、恢復速度、地形與駐守的防禦加成、掠奪比例 | 見檔案 |
+| `victory` | 領土勝利需要的比例、時間限制（分鐘） | 40%、60 分鐘 |
+
+### 3.2 `buildings.json`：建築
+
+每種建築的欄位：
+
+| 欄位 | 意思 |
+|---|---|
+| `name` | 顯示名稱 |
+| `buildable` | 玩家能不能建造（營地是 false） |
+| `cost` | 成本，例如 `{ "wood": 60, "stone": 10 }` |
+| `buildSeconds` | 建造時間（1 位村民、效率 1 的情況） |
+| `placement` | `"land"` 任何陸地 ／ `"farmable"` 只能蓋在可耕作地 |
+| `territory` | `"connected"` 國土建築，範圍必須和現有國土相連 ／ `"near"` 國土內或國土外幾格內 ／ `"foreign"` 蓋在建交對象的國土內（領事館）／ `"none"` |
+| `maxOutsideDistance` | 只對 `"near"` 有效，覆蓋預設的「國土外幾格」 |
+| `territoryRadius` | 提供的國土半徑（0 = 不提供） |
+| `visionRadius` | 視野半徑 |
+| `popCap` | 增加的人口上限 |
+| `workerSlots` / `production` | 工作名額 / 每位工人每秒的產量 |
+| `trainingSlots` | 訓練名額（兵營） |
+| `garrisonSlots` / `requiresGarrison` | 駐守名額 / 是否要有駐軍才有效果（瞭望塔） |
+| `researchPerWorker` | 每位研究員每秒產生的研究點數 |
+| `freshWaterBonus` | 鄰近淡水的產量加成（農田 0.5 = +50%） |
+| `nonStoneMultiplier` | 蓋在非石地上的產量倍率（礦場 0.1） |
+| `hp` | 生命值 |
+
+> **新增一種建築**：只改 JSON 不夠。還需要在 `src/client/renderer.ts` 的 `drawBuilding` 加上它的圖案；如果它有特殊效果，也要寫程式。可以直接請 Claude Code 幫忙。
+
+### 3.3 `terrain.json`：地形
+每種地形的名稱、能不能通行（`land`）、是否淡水、移動耗費、可否耕作、顏色，以及可能出現的資源（`deposits`：資源種類、出現機率、數量範圍）。
+
+### 3.4 `tech.json`：科技樹
+```json
+"agriculture": { "name": "農耕技術", "cost": 40, "requires": [], "description": "農田產量 +25%", "effects": { "farmRate": 0.25 } }
 ```
-src/
-  sim/            模擬核心（純 TypeScript，不碰畫面；確定性、固定 tick）
-    data/         遊戲數值與地形表（JSON，調整平衡只要改這裡）
-    systems/      每個 tick 依序執行的系統（工作、國土、糧食、人口、研究、忠誠度、外交、視野）
-    modifiers.ts  科技與國策的效果彙總
-    ai/           AI 國家（起點選擇與決策，只透過 Command 行動）
-    economy.ts    產量、收入、成本計算
-    commands.ts   玩家與 AI 的所有操作（之後多人連線時在網路上傳送）
-    game.ts       createGame / stepGame
-  client/         遊戲控制器（時間、速度、指令佇列）與 PixiJS 地圖繪製
-  ui/             React 介面
-tests/            Vitest 測試
+- `cost`：研究點數
+- `requires`：前置科技的 id
+- `effects`：效果，數值會**加**到對應的倍率上（0.25 = +25%，-0.5 = -50%）
+
+### 3.5 `policies.json`：國策
+分成幾類，**每類只能選一個**。格式和科技相同，可以新增類別或選項。
+
+### 3.6 科技和國策可以用的效果
+這些名稱來自 `src/sim/modifiers.ts`。倍率類預設是 1，加成類預設是 0。
+
+| 效果 | 意思 |
+|---|---|
+| `farmRate` / `mineRate` | 農田 / 礦場產量 |
+| `gatherFood` `gatherWood` `gatherStone` `gatherOre` | 徒手採集速度 |
+| `buildSpeed` / `trainSpeed` / `researchRate` | 建造 / 訓練 / 研究速度 |
+| `towerRadiusBonus` / `towerVisionBonus` | 瞭望塔國土 / 視野 +N 格 |
+| `loyaltyDecay` | 忠誠度下降速度（負數 = 變慢） |
+| `popInterval` | 人口生產間隔（負數 = 變快） |
+| `foodConsumption` | 糧食消耗 |
+| `warFoodPenalty` | 戰爭懲罰的比例（-1 = 取消） |
+| `soldierSpeed` / `soldierAttack` / `soldierDefense` | 士兵的速度 / 攻擊 / 防禦 |
+| `roughTerrainDefense` | 士兵在森林、泥地的額外防禦 |
+| `soldierLoyaltyImmune` | 大於 0 時，士兵的忠誠度不會下降 |
+| `subversionResist` | 被策反時抵抗成功的機率 |
+| `consulateDeadline` / `tradeIncome` | 領事館期限 / 貿易收入 |
+| `plunder` | 掠奪倍率 |
+
+> 想加入**新的效果名稱**：要在 `modifiers.ts` 加上預設值，並在使用它的地方寫程式。
+
+---
+
+## 4. 須知與注意事項
+
+1. **改完數值後執行 `npm test`。** 測試會檢查規則有沒有被破壞，例如「非戰時期糧食不會減少」。有些測試直接讀 JSON 裡的值，所以一般調整數值不會讓測試失敗；如果失敗了，通常代表規則真的被改變了。
+2. **不要改 `ticksPerSecond`**，除非你想同時改變所有時間的感覺。
+3. **多人遊戲時，所有玩家必須用同一個版本**，包括 JSON 數值。數值不同會造成「不同步」，畫面上會出現紅色警告。架站時只要大家都連同一台伺服器的網頁，版本就一定一樣。
+4. **地圖種子**：同一個種子一定產生同一張地圖。開局畫面會顯示種子，可以記下喜歡的地圖。
+5. **AI 的個性**（好戰度、開放度、擴張度）由地圖種子決定，同一張地圖的 AI 個性也一樣。AI 的行為規則在 `src/sim/ai/ai.ts`。
+6. 目前**沒有存檔功能**。離開或重新整理頁面後，遊戲就會消失。
+
+---
+
+## 5. 專案結構（簡要）
+
+```
+src/sim/        遊戲規則（模擬核心）── 數值在 src/sim/data/
+src/client/     遊戲迴圈、地圖繪製、多人連線用戶端
+src/ui/         介面（React）
+src/net/        多人連線的訊息格式
+server/         多人連線伺服器
+tests/          自動測試
+docs/GDD.md     遊戲設計文件
 ```
 
-設計原則：
-- **模擬核心不能使用 `Math.random()` 和 `Date`**：隨機數一律用 `src/sim/rng.ts`，這樣同樣的種子加上同樣的指令，結果一定相同（多人 lockstep 與重播都靠這一點）。
-- **AI 和玩家使用同一套 `Command`**，AI 不會作弊。
+更詳細的架構與開發規則請看 [`CLAUDE.md`](CLAUDE.md)。

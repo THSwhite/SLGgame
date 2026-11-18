@@ -91,6 +91,11 @@ export function createGame(setup: GameSetup): GameState {
   };
 }
 
+/** Apply commands without advancing time (used while paused). */
+export function applyCommands(state: GameState, commands: Command[]): Array<string | null> {
+  return commands.map((c) => applyCommand(state, c));
+}
+
 /**
  * Advance the simulation by exactly one tick. Commands are applied first, in
  * the given order. Same state + same commands => same result (lockstep-safe).

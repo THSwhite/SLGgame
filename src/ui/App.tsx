@@ -15,6 +15,7 @@ import { garrisonOf } from '../sim/systems/territory';
 import { enemiesOnTile } from '../sim/systems/combat';
 import { getRelation } from '../sim/systems/diplomacy';
 import { EndOverlay } from './EndOverlay';
+import type { NetGameController } from '../client/net';
 import { ResearchPanel } from './ResearchPanel';
 import { DiplomacyPanel, pendingProposals } from './DiplomacyPanel';
 import { foodConsumptionPerMinute } from '../sim/systems/food';
@@ -69,8 +70,7 @@ function smartCommand(c: GameController, tile: number) {
   }
 }
 
-export function App() {
-  const [controller] = useState(() => new GameController());
+export function Game({ controller, onExit }: { controller: GameController; onExit: () => void }) {
   if (import.meta.env.DEV) (window as unknown as { __game: GameController }).__game = controller;
   const hostRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<MapRenderer | null>(null);
@@ -141,6 +141,9 @@ export function App() {
     <div className="app">
       <div className="map" ref={hostRef} />
       {s.phase === 'ended' && <EndOverlay controller={controller} state={s} />}
+      {controller.isNetwork && (controller as NetGameController).desync && (
+        <div className="panel desync">⚠ 偵測到與其他玩家的遊戲狀態不同步。請回報這個問題。</div>
+      )}
       {s.phase === 'choosingStart' ? (
         <StartOverlay controller={controller} onStarted={(t) => rendererRef.current?.centerOn(t)} />
       ) : (
@@ -151,6 +154,7 @@ export function App() {
             onManagement={() => setShowManagement((x) => !x)}
             onResearch={() => setShowResearch((x) => !x)}
             onDiplomacy={() => setShowDiplomacy((x) => !x)}
+            onExit={onExit}
           />
           {showDiplomacy && <DiplomacyPanel controller={controller} state={s} onClose={() => setShowDiplomacy(false)} />}
           {showResearch && <ResearchPanel controller={controller} state={s} onClose={() => setShowResearch(false)} />}
@@ -173,6 +177,13 @@ function StartOverlay({ controller, onStarted }: { controller: GameController; o
       <h2>選擇起點</h2>
       <p>你只知道哪裡是陸地、哪裡是海洋。點選一塊陸地作為國家的起點。</p>
       <p className="hint">拖曳平移地圖，滾輪縮放</p>
+      {controller.isNetwork ? (
+        <p className="hint">
+          多人遊戲：你是 <b style={{ color: s.players[controller.localPlayer].color }}>{s.players[controller.localPlayer].name}</b>
+          。{s.players[controller.localPlayer].startTile !== -1 ? '已選好起點，等待其他玩家…' : '每位玩家各自選擇起點。'}
+        </p>
+      ) : (
+      <>
       <div className="row">
         <span>AI 國家數量</span>
         <span className="speeds">
@@ -199,6 +210,8 @@ function StartOverlay({ controller, onStarted }: { controller: GameController; o
         </span>
         <button onClick={() => controller.newGame({ seed: randomSeed() })}>🎲 隨機地圖</button>
       </div>
+      </>
+      )}
       <div className="row">
         <span>{tile === null ? '尚未選擇' : land ? `已選擇 (${tileLabel(s, tile)})` : '這裡是水域，請選擇陸地'}</span>
         <button
@@ -229,12 +242,14 @@ function TopBar({
   onManagement,
   onResearch,
   onDiplomacy,
+  onExit,
 }: {
   controller: GameController;
   state: GameState;
   onManagement: () => void;
   onResearch: () => void;
   onDiplomacy: () => void;
+  onExit: () => void;
 }) {
   const pending = pendingProposals(state, controller.localPlayer);
   const me = state.players[controller.localPlayer];
@@ -277,6 +292,13 @@ function TopBar({
           </button>
         ))}
       </div>
+      <button
+        onClick={() => {
+          if (window.confirm(controller.isNetwork ? '確定要離開這場多人遊戲嗎？你的國家會改由 AI 接手。' : '確定要回到主選單嗎？目前的遊戲不會保存。')) onExit();
+        }}
+      >
+        選單
+      </button>
     </div>
   );
 }
