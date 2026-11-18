@@ -91,7 +91,24 @@
     "captureHpShare": 0.3
   },
   "victory": {
-    "territoryShare": 0.4,
+    "territorySchedule": [
+      {
+        "minute": 20,
+        "share": 0.8
+      },
+      {
+        "minute": 30,
+        "share": 0.7
+      },
+      {
+        "minute": 40,
+        "share": 0.6
+      },
+      {
+        "minute": 50,
+        "share": 0.5
+      }
+    ],
     "timeLimitMinutes": 60
   },
   "mapSizes": {
@@ -131,9 +148,7 @@
     "devastationPerBuildingHp": 0.03,
     "devastationPerDestroyedBuilding": 10,
     "maxResentment": 90,
-    "resentmentDecayPerSecond": 0.05,
-    "branchStockShareMin": 0.1,
-    "capitalStockShare": 0.5
+    "resentmentDecayPerSecond": 0.05
   },
   "independentNations": [
     {
@@ -160,5 +175,10 @@
       "name": "沙原酋邦",
       "color": "#c0ca33"
     }
-  ]
+  ],
+  "transport": {
+    "incomeFactorPerTile": 0.08,
+    "deliverySecondsPerTile": 1.5,
+    "carryCapacity": 50
+  }
 }

@@ -2,6 +2,7 @@ import { BALANCE, BUILDINGS } from '../data';
 import { hexDistance, tilesInRadius } from '../hex';
 import { nextRandom } from '../rng';
 import { makePlayer } from '../state';
+import { fillStore, refreshStock } from '../storage';
 import { addRelationsFor, getRelation } from './diplomacy';
 import { recomputeTerritory } from './territory';
 import { getPlayer, logEvent } from '../state';
@@ -90,7 +91,6 @@ export function declareIndependence(state: GameState, city: Building): void {
     expansion: nextRandom(state),
   });
   nation.startTile = city.tile;
-  nation.stock = { ...BALANCE.branchCity.independenceStartingStock };
   nation.knowledge = [...parent.knowledge];
   nation.researched = [...parent.researched];
   state.players.push(nation);
@@ -100,6 +100,9 @@ export function declareIndependence(state: GameState, city: Building): void {
   city.type = 'camp';
   city.owner = id;
   city.devastation = 0;
+  // The city keeps what it had stored, plus a little to get going.
+  fillStore(state, city, BALANCE.branchCity.independenceStartingStock);
+  refreshStock(state, parent);
   for (const v of people) {
     v.owner = id;
     v.soldier = false;

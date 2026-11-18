@@ -22,6 +22,7 @@ export function villagerStatus(state: GameState, v: Villager): string {
       const name = b ? BUILDINGS[b.type].name : '建築';
       if (o.kind === 'construct') {
         if (travelling) return `前往建造${name}`;
+        if (b && (b.delivery ?? 0) > 0) return `等待物資送達（${Math.ceil((b.delivery ?? 0) / BALANCE.ticksPerSecond)} 秒）`;
         if (b && lacksWorkforce(state, b)) return `等待人手（${name}需要周圍 ${BUILDINGS[b.type].minVillagersNearby} 位村民）`;
         return `建造${name} ${Math.floor((b?.progress ?? 0) * 100)}%`;
       }
@@ -34,6 +35,10 @@ export function villagerStatus(state: GameState, v: Villager): string {
       return travelling ? '前往駐守' : '駐守瞭望塔';
     case 'attack':
       return travelling ? '行軍中' : '戰鬥中';
+    case 'transport': {
+      const res = RESOURCE_NAMES[o.resource];
+      return o.stage === 'pickup' ? `前往領取${res}` : `運送${res} ${Math.floor(v.cargo?.amount ?? 0)}`;
+    }
   }
 }
 
@@ -83,5 +88,7 @@ export function activityIcon(state: GameState, v: Villager): string {
       return '🛡';
     case 'attack':
       return '⚔';
+    case 'transport':
+      return '📦';
   }
 }

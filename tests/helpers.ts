@@ -4,6 +4,8 @@ import { BALANCE, TERRAIN } from '../src/sim/data';
 import { hexDistance, tilesInRadius } from '../src/sim/hex';
 import { validateCommand, type Command } from '../src/sim/commands';
 import { Knowledge, type GameState } from '../src/sim/types';
+import { capitalOf, initStore, refreshStock, storesOf } from '../src/sim/storage';
+import type { ResourceType } from '../src/sim/data';
 
 export const COLORS = ['#e53935', '#1e88e5', '#43a047', '#fdd835'];
 
@@ -63,6 +65,19 @@ export function freeTile(s: GameState, player = 0, pred: (i: number) => boolean 
 /** Add a completed building directly (for setting up tests). */
 export function addBuilding(s: GameState, type: GameState['buildings'][number]['type'], tile: number, owner = 0) {
   const id = s.nextEntityId++;
-  s.buildings.push({ id, type, owner, tile, progress: 1, hp: 100 });
+  const b = { id, type, owner, tile, progress: 1, hp: 100 } as GameState['buildings'][number];
+  initStore(b);
+  s.buildings.push(b);
   return id;
+}
+
+/** Scripted setups: a nation now has exactly these amounts, all in its capital's store (ignoring capacity). */
+export function setStock(s: GameState, owner: number, amounts: Partial<Record<ResourceType, number>>) {
+  const capital = capitalOf(s, owner);
+  if (!capital) throw new Error('no capital');
+  for (const [r, v] of Object.entries(amounts) as Array<[ResourceType, number]>) {
+    for (const b of storesOf(s, owner)) b.store![r] = 0;
+    capital.store![r] = v;
+  }
+  refreshStock(s, s.players[owner]);
 }

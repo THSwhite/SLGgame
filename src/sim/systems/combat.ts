@@ -1,5 +1,6 @@
 import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES } from '../data';
 import { getModifiers } from '../modifiers';
+import { deposit } from '../storage';
 import { neighbors } from '../hex';
 import { getPlayer, logEvent, maxVillagerHp } from '../state';
 import type { Building, GameState, PlayerId, Villager } from '../types';
@@ -43,7 +44,7 @@ function plunder(state: GameState, b: Building, to: PlayerId) {
   for (const r of RESOURCE_TYPES) {
     const amount = Math.floor((cost[r] ?? 0) * share);
     if (amount > 0) {
-      player.stock[r] += amount;
+      deposit(state, to, b.tile, r, amount);
       got.push(`${RESOURCE_NAMES[r]} ${amount}`);
     }
   }
@@ -107,6 +108,13 @@ export function runCombat(state: GameState): void {
     if (v.hp <= 0) {
       dead.add(v);
       addDevastation(state, v.owner, v.tile, C.devastationPerKill);
+      if (v.cargo) {
+        // Intercepted: the goods belong to whoever killed the carrier.
+        const got = deposit(state, d.by, v.tile, v.cargo.resource, v.cargo.amount);
+        logEvent(state, d.by, `劫獲了 ${getPlayer(state, v.owner).name} 運送中的${RESOURCE_NAMES[v.cargo.resource]} ${Math.floor(got)}`);
+        logEvent(state, v.owner, `運送中的${RESOURCE_NAMES[v.cargo.resource]} ${Math.floor(v.cargo.amount)} 被 ${getPlayer(state, d.by).name} 劫走了`);
+        v.cargo = null;
+      }
       const killer = getPlayer(state, d.by).name;
       logEvent(state, v.owner, `${v.soldier ? '士兵' : '村民'} #${v.id} 被 ${killer} 殺死了`);
       logEvent(state, d.by, `擊敗了 ${getPlayer(state, v.owner).name} 的${v.soldier ? '士兵' : '村民'} #${v.id}`);

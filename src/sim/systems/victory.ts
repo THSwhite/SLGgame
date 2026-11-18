@@ -27,6 +27,22 @@ function eliminate(state: GameState, p: Player) {
   for (const other of state.players) logEvent(state, other.id, `${p.name} 滅亡了`);
 }
 
+/** Land share needed for a territory victory right now, or null before the first deadline. */
+export function territoryThreshold(state: GameState): number | null {
+  const minute = state.tick / secondsToTicks(60);
+  let share: number | null = null;
+  for (const step of [...BALANCE.victory.territorySchedule].sort((a, b) => a.minute - b.minute)) {
+    if (minute >= step.minute) share = step.share;
+  }
+  return share;
+}
+
+/** The next schedule step after now (for the UI), if any. */
+export function nextTerritoryStep(state: GameState): { minute: number; share: number } | null {
+  const minute = state.tick / secondsToTicks(60);
+  return [...BALANCE.victory.territorySchedule].sort((a, b) => a.minute - b.minute).find((s) => s.minute > minute) ?? null;
+}
+
 /** Runs once per second: eliminations, then victory conditions. */
 export function runVictory(state: GameState): void {
   if (state.tick % BALANCE.ticksPerSecond !== 0 || state.phase !== 'playing') return;
@@ -46,11 +62,17 @@ export function runVictory(state: GameState): void {
 
   if (state.players.filter((p) => !p.isAI).every((p) => p.eliminated)) return end(null, 'defeat');
   if (state.players.length > 1 && alive.length === 1) return end(alive[0].id, 'conquest');
-  for (const p of alive) {
-    if (landShare(state, p) >= BALANCE.victory.territoryShare) return end(p.id, 'territory');
+  const needed = territoryThreshold(state);
+  if (needed !== null) {
+    for (const p of alive) {
+      if (landShare(state, p) >= needed) return end(p.id, 'territory');
+    }
   }
   if (state.tick >= secondsToTicks(BALANCE.victory.timeLimitMinutes * 60)) {
-    const best = [...alive].sort((a, b) => nationScore(state, b) - nationScore(state, a) || a.id - b.id)[0];
+    // Most land wins; national strength breaks ties.
+    const best = [...alive].sort(
+      (a, b) => landShare(state, b) - landShare(state, a) || nationScore(state, b) - nationScore(state, a) || a.id - b.id,
+    )[0];
     return end(best.id, 'time');
   }
 }

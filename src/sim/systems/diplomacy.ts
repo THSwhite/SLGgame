@@ -2,6 +2,7 @@ import { BALANCE, RESOURCE_TYPES } from '../data';
 import { zeroRates, type Rates } from '../economy';
 import { getModifiers } from '../modifiers';
 import { getPlayer, logEvent, secondsToTicks } from '../state';
+import { capitalOf, deposit } from '../storage';
 import type { GameState, PlayerId, Relation, RelationStatus } from '../types';
 import { isComplete } from './territory';
 
@@ -178,6 +179,8 @@ export function runDiplomacy(state: GameState): void {
   // Trade income, once per second.
   for (const p of state.players) {
     const t = tradePerMinute(state, p.id);
-    for (const r of RESOURCE_TYPES) p.stock[r] += t[r] / 60;
+    const capital = capitalOf(state, p.id);
+    if (!capital) continue;
+    for (const r of RESOURCE_TYPES) if (t[r] > 0) deposit(state, p.id, capital.tile, r, t[r] / 60);
   }
 }

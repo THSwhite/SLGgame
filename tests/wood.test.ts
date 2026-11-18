@@ -4,7 +4,7 @@ import { BALANCE, BUILDINGS, TERRAIN } from '../src/sim/data';
 import { tilesInRadius } from '../src/sim/hex';
 import { validateCommand } from '../src/sim/commands';
 import { adjacentForests, buildingRatePerWorker } from '../src/sim/economy';
-import { addBuilding, exploreAll, ok, run, startAt } from './helpers';
+import { addBuilding, exploreAll, ok, run, startAt, setStock } from './helpers';
 
 describe('wood supply on the map', () => {
   it('almost every land tile has wood within 3 tiles, on many seeds', () => {
@@ -31,7 +31,7 @@ describe('lumber camp', () => {
   it('cannot be built on stone', () => {
     const s = startAt();
     exploreAll(s);
-    s.players[0].stock.wood = 500;
+    setStock(s, 0, { wood: 500 });
     const stone = s.tiles.findIndex((t, i) => t.terrain === 'stone' && validateCommand(s, { type: 'placeBuilding', player: 0, villager: s.villagers[0].id, tile: i, building: 'mine' }) === null);
     if (stone >= 0) {
       expect(validateCommand(s, { type: 'placeBuilding', player: 0, villager: s.villagers[0].id, tile: stone, building: 'lumber' })).toBe(
@@ -61,7 +61,7 @@ describe('lumber camp', () => {
   it('workers produce wood without depleting the tile; forestry speeds it up', () => {
     const s = startAt();
     s.players[0].management.popEnabled = false;
-    s.players[0].stock.food = 1000;
+    setStock(s, 0, { food: 1000 });
     const tile = tilesInRadius(s, s.players[0].startTile, 2).find(
       (i) => s.tiles[i].terrain !== 'stone' && TERRAIN[s.tiles[i].terrain].land && !s.buildings.some((b) => b.tile === i),
     )!;

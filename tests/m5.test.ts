@@ -5,8 +5,9 @@ import { hexDistance } from '../src/sim/hex';
 import { validateCommand } from '../src/sim/commands';
 import { getRelation, setStatus } from '../src/sim/systems/diplomacy';
 import { defenseMultiplier } from '../src/sim/systems/combat';
+import { territoryThreshold } from '../src/sim/systems/victory';
 import { newVillager } from '../src/sim/state';
-import { addBuilding, exploreAll, ok, run, startAt } from './helpers';
+import { addBuilding, exploreAll, ok, run, startAt, setStock } from './helpers';
 import type { GameState, Villager } from '../src/sim/types';
 
 function twoNations(): GameState {
@@ -14,7 +15,7 @@ function twoNations(): GameState {
   for (const p of s.players) {
     p.ai = null;
     p.management.popEnabled = false;
-    p.stock.food = 5000;
+    setStock(s, p.id, { food: 5000 });
   }
   getRelation(s, 0, 1).contact = true;
   return s;
@@ -44,7 +45,7 @@ function neutralTile(s: GameState, rough = false): number {
   );
 }
 
-const saved = { ...BALANCE.victory };
+const saved = structuredClone(BALANCE.victory);
 afterEach(() => Object.assign(BALANCE.victory, saved));
 
 describe('combat', () => {
@@ -161,16 +162,38 @@ describe('elimination and victory', () => {
     expect(s.result?.reason).toBe('defeat');
   });
 
-  it('controlling enough land wins', () => {
+  it('territory victory needs a share that shrinks over time (none before the first deadline)', () => {
     const s = twoNations();
-    BALANCE.victory.territoryShare = 0.01;
+    BALANCE.victory.territorySchedule = [
+      { minute: 20, share: 0.8 },
+      { minute: 30, share: 0.01 },
+    ];
+    run(s, 2);
+    expect(s.result).toBeNull();
+    expect(territoryThreshold(s)).toBeNull();
+    s.tick = 20 * 60 * BALANCE.ticksPerSecond;
+    run(s, 2);
+    expect(territoryThreshold(s)).toBe(0.8);
+    expect(s.result).toBeNull();
+    s.tick = 30 * 60 * BALANCE.ticksPerSecond;
     run(s, 2);
     expect(s.result?.reason).toBe('territory');
   });
 
-  it('when time runs out the strongest nation wins', () => {
+  it('default schedule: 80% / 70% / 60% / 50% at 20 / 30 / 40 / 50 minutes', () => {
+    expect(saved.territorySchedule).toEqual([
+      { minute: 20, share: 0.8 },
+      { minute: 30, share: 0.7 },
+      { minute: 40, share: 0.6 },
+      { minute: 50, share: 0.5 },
+    ]);
+  });
+
+  it('when time runs out the nation with the most land wins', () => {
     const s = twoNations();
-    for (let i = 0; i < 5; i++) newVillager(s, 1, s.players[1].startTile);
+    // Nation 1 gets an extra house, so more land.
+    const t = s.tiles.findIndex((tile, i) => TERRAIN[tile.terrain].land && tile.owner === -1 && hexDistance(s, i, s.players[1].startTile) === 3);
+    addBuilding(s, 'house', t, 1);
     s.tick = BALANCE.victory.timeLimitMinutes * 60 * BALANCE.ticksPerSecond - 5;
     run(s, 2);
     expect(s.result).toMatchObject({ winner: 1, reason: 'time' });

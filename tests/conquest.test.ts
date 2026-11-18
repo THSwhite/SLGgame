@@ -4,8 +4,9 @@ import { hexDistance } from '../src/sim/hex';
 import { getRelation, setStatus } from '../src/sim/systems/diplomacy';
 import { annex, addDevastation } from '../src/sim/systems/conquest';
 import { workEfficiency } from '../src/sim/economy';
+import { refreshStock } from '../src/sim/storage';
 import { newVillager } from '../src/sim/state';
-import { addBuilding, run, startAt } from './helpers';
+import { addBuilding, run, startAt, setStock } from './helpers';
 import type { GameState, Villager } from '../src/sim/types';
 
 function twoNations(): GameState {
@@ -13,7 +14,7 @@ function twoNations(): GameState {
   for (const p of s.players) {
     p.ai = null;
     p.management.popEnabled = false;
-    p.stock = { food: 1000, wood: 400, stone: 200, ore: 0 };
+    setStock(s, p.id, { food: 1000, wood: 400, stone: 200, ore: 0 });
   }
   getRelation(s, 0, 1).contact = true;
   setStatus(s, getRelation(s, 0, 1), 'war');
@@ -47,21 +48,23 @@ describe('conquering capitals and branch cities', () => {
     expect(s.players[1].eliminated).toBe(true);
   });
 
-  it('taking a branch city annexes only its region plus a share of resources', () => {
+  it('taking a branch city annexes only its region, including what its store holds', () => {
     const s = twoNations();
     const enemyStart = s.players[1].startTile;
     const cityTile = s.tiles.findIndex((t, i) => TERRAIN[t.terrain].land && t.owner === -1 && hexDistance(s, i, enemyStart) === 8);
     const cityId = addBuilding(s, 'city', cityTile, 1);
     const city = s.buildings.find((b) => b.id === cityId)!;
+    city.store!.wood = 120;
+    refreshStock(s, s.players[1]);
     const local = newVillager(s, 1, cityTile);
-    const before = s.players[1].stock.wood;
+    const theirs = s.players[1].stock.wood;
+    const mine = s.players[0].stock.wood;
     annex(s, city, 1, 0);
     expect(city.owner).toBe(0);
     expect(local.owner).toBe(0);
-    expect(capital(s, 1).owner).toBe(1); // their capital is untouched
-    const taken = before - s.players[1].stock.wood;
-    expect(taken).toBeGreaterThanOrEqual(Math.floor(before * BALANCE.conquest.branchStockShareMin));
-    expect(taken).toBeLessThan(before);
+    expect(capital(s, 1).owner).toBe(1); // their capital (and its store) is untouched
+    expect(s.players[1].stock.wood).toBe(theirs - 120);
+    expect(s.players[0].stock.wood).toBe(mine + 120);
   });
 
   it('the more devastation, the more resentful (and less loyal) the conquered people', () => {

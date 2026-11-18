@@ -9,6 +9,7 @@ import { consulateOf, other, relationsOf } from '../systems/diplomacy';
 import { researchBlocked } from '../systems/research';
 import { garrisonOf, isComplete } from '../systems/territory';
 import { cityCount, cityLimit, independenceThreshold } from '../systems/cities';
+import { storageCapacity, storesOf } from '../storage';
 import { Knowledge, type Building, type GameState, type Player, type Villager } from '../types';
 
 /**
@@ -373,6 +374,28 @@ class Brain {
       if (this.place(v, 'lumber', forestScore)) return true;
     }
     if (this.stock('wood') < 150 && this.workAt(v, 'lumber')) return true;
+
+    // 2c. Warehouses: near production that is far from every store, or when storage is nearly full.
+    const warehouseCap = 2 + Math.floor(pop / 12);
+    if (!this.hasSite('warehouse') && this.affordable('warehouse') && pop >= 6 && this.count('warehouse') < warehouseCap) {
+      const stores = storesOf(state, me.id);
+      const toStore = (t: number) => Math.min(...stores.map((b) => hexDistance(state, b.tile, t)));
+      const remote = this.buildings.filter(
+        (b) => isComplete(b) && BUILDINGS[b.type].workerSlots > 0 && !BUILDINGS[b.type].researchPerWorker && toStore(b.tile) > 4,
+      );
+      const capacity = stores.reduce((sum, b) => sum + storageCapacity(b), 0);
+      // Only expand storage for what we actually still want more of.
+      const wanted: Partial<Record<ResourceType, number>> = { food: 1500, wood: 1500, stone: 800 };
+      const nearlyFull = (Object.keys(wanted) as ResourceType[]).some(
+        (r) => this.stock(r) >= capacity * 0.85 && this.stock(r) < wanted[r]!,
+      );
+      if (remote.length || nearlyFull) {
+        const score = remote.length
+          ? (t: number) => -Math.min(...remote.map((b) => hexDistance(state, b.tile, t)))
+          : (t: number) => -hexDistance(state, t, me.startTile);
+        if (this.place(v, 'warehouse', score)) return true;
+      }
+    }
 
     // 3. Housing, placed where it claims the most new land. Expansionist nations
     //    keep building houses whenever wood allows, not only when full.

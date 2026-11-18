@@ -84,7 +84,12 @@ export interface Balance {
     /** HP share a captured building keeps. */
     captureHpShare: number;
   };
-  victory: { territoryShare: number; timeLimitMinutes: number };
+  victory: {
+    /** From `minute` on, holding `share` of all land wins (latest matching entry applies). */
+    territorySchedule: Array<{ minute: number; share: number }>;
+    /** At this minute the nation with the most land wins. */
+    timeLimitMinutes: number;
+  };
   mapSizes: Record<string, { width: number; height: number; name: string }>;
   branchCity: {
     /** One branch city allowed per this many territory tiles. */
@@ -111,10 +116,14 @@ export interface Balance {
     devastationPerDestroyedBuilding: number;
     maxResentment: number;
     resentmentDecayPerSecond: number;
-    /** Minimum share of the loser's stock taken with a branch city. */
-    branchStockShareMin: number;
-    /** Share of the loser's stock taken with a capital that is not their last. */
-    capitalStockShare: number;
+  };
+  transport: {
+    /** Income from a job k tiles from the nearest store is multiplied by 1 / (1 + factor × k). */
+    incomeFactorPerTile: number;
+    /** Construction waits this long per tile between the site and the farthest store paying for it. */
+    deliverySecondsPerTile: number;
+    /** How much of one resource a transporting villager carries per trip. */
+    carryCapacity: number;
   };
   loyalty: {
     max: number;
@@ -177,6 +186,8 @@ export interface BuildingDef {
   capturable?: boolean;
   /** Construction only progresses with at least this many own villagers on the tile or its 6 neighbours. */
   minVillagersNearby?: number;
+  /** Storage capacity per resource (capitals, branch cities, warehouses). */
+  storage?: number;
 }
 
 export const BUILDINGS = buildingsJson as Record<BuildingType, BuildingDef>;

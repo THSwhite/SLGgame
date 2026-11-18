@@ -6,8 +6,8 @@ import { formatTime } from './describe';
 
 const REASONS = {
   conquest: '征服勝利：其他國家都已滅亡',
-  territory: '領土勝利：控制了足夠的土地',
-  time: '時間到：國力最強的國家獲勝',
+  territory: '領土勝利：在期限內控制了足夠的土地',
+  time: '時間到：領土最多的國家獲勝',
   defeat: '你的國家滅亡了',
 };
 

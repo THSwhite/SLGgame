@@ -14,7 +14,8 @@
     "trainingSlots": 0,
     "garrisonSlots": 0,
     "hp": 600,
-    "capturable": true
+    "capturable": true,
+    "storage": 600
   },
   "farm": {
     "name": "農田",
@@ -90,6 +91,26 @@
     "hp": 150,
     "capturable": true
   },
+  "warehouse": {
+    "name": "倉庫",
+    "buildable": true,
+    "cost": {
+      "wood": 60
+    },
+    "buildSeconds": 20,
+    "placement": "land",
+    "territory": "near",
+    "territoryRadius": 0,
+    "visionRadius": 1,
+    "popCap": 0,
+    "workerSlots": 0,
+    "production": {},
+    "trainingSlots": 0,
+    "garrisonSlots": 0,
+    "hp": 250,
+    "capturable": true,
+    "storage": 500
+  },
   "house": {
     "name": "民宅",
     "buildable": true,
@@ -128,7 +149,8 @@
     "garrisonSlots": 0,
     "hp": 400,
     "capturable": true,
-    "minVillagersNearby": 3
+    "minVillagersNearby": 3,
+    "storage": 400
   },
   "barracks": {
     "name": "兵營",

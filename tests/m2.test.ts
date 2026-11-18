@@ -1,3 +1,4 @@
+import { setStock } from './helpers';
 import { describe, expect, it } from 'vitest';
 import { createGame, stepGame, TEST_MAP_SEED } from '../src/sim/game';
 import { BALANCE, BUILDINGS, TERRAIN } from '../src/sim/data';
@@ -73,7 +74,7 @@ describe('building placement', () => {
   it('limits non-territory buildings to near the border', () => {
     const s = startAt(hasFarmland);
     exploreAll(s);
-    s.players[0].stock.wood = 1000;
+    setStock(s, 0, { wood: 1000 });
     const camp = s.players[0].startTile;
     const v = s.villagers[0].id;
     const far = s.tiles.findIndex((t, i) => TERRAIN[t.terrain].land && hexDistance(s, i, camp) === 2 + BALANCE.nonTerritoryBuildingMaxDistance + 2);
@@ -85,7 +86,7 @@ describe('building placement', () => {
   it('requires territory buildings to connect to territory', () => {
     const s = startAt(hasFarmland);
     exploreAll(s);
-    s.players[0].stock.wood = 1000;
+    setStock(s, 0, { wood: 1000 });
     const camp = s.players[0].startTile;
     const v = s.villagers[0].id;
     // Radius 1 house: territory edge is distance 2, so distance 4 just touches, 5 is disconnected.
@@ -103,7 +104,7 @@ describe('building placement', () => {
     const wood = s.players[0].stock.wood;
     ok(s, { type: 'placeBuilding', player: 0, villager: s.villagers[0].id, tile, building: 'farm' });
     expect(s.players[0].stock.wood).toBe(wood - BUILDINGS.farm.cost.wood!);
-    s.players[0].stock.wood = 0;
+    setStock(s, 0, { wood: 0 });
     expect(
       validateCommand(s, { type: 'placeBuilding', player: 0, villager: s.villagers[1].id, tile: freeFarmland(s), building: 'farm' }),
     ).toMatch(/資源不足/);
@@ -173,7 +174,7 @@ describe('construction and work', () => {
   it('a finished house raises the population cap and expands territory', () => {
     const s = startAt(hasFarmland);
     exploreAll(s);
-    s.players[0].stock.wood = 1000;
+    setStock(s, 0, { wood: 1000 });
     const camp = s.players[0].startTile;
     const tile = s.tiles.findIndex((t, i) => TERRAIN[t.terrain].land && hexDistance(s, i, camp) === 3);
     const capBefore = populationCap(s, s.players[0]);
@@ -196,7 +197,7 @@ describe('population', () => {
 
   it('grows at the configured interval when food income allows, up to the cap', () => {
     const s = startAt(hasFarmland);
-    s.players[0].stock.food = 1000;
+    setStock(s, 0, { food: 1000 });
     const p = s.players[0];
     ok(s, { type: 'setManagement', player: 0, settings: { popIntervalSeconds: 10 } });
     // Two farms with two workers each.
@@ -217,7 +218,7 @@ describe('population', () => {
   it('with food protection, every birth keeps food income >= consumption', () => {
     const s = startAt(hasFarmland);
     const p = s.players[0];
-    p.stock.food = 1000;
+    setStock(s, p.id, { food: 400 }); // below the granary limit, so protection stays active
     p.management.popIntervalSeconds = 10;
     s.buildings.push({ id: 900, type: 'farm', owner: 0, tile: freeFarmland(s), progress: 1, hp: 100 });
     ok(s, { type: 'work', player: 0, villager: s.villagers[0].id, building: 900 });

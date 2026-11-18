@@ -34,7 +34,9 @@ export type VillagerOrder =
   | { kind: 'train'; building: number; progress: number; paid: boolean }
   | { kind: 'garrison'; building: number }
   /** Soldiers march to a tile and fight whatever enemy is there. */
-  | { kind: 'attack'; target: TileIndex };
+  | { kind: 'attack'; target: TileIndex }
+  /** Carry one resource from one store to another. */
+  | { kind: 'transport'; from: number; to: number; resource: ResourceType; amount: number; stage: 'pickup' | 'deliver' };
 
 export interface Villager {
   id: number;
@@ -52,6 +54,8 @@ export interface Villager {
   loyalty: number;
   /** 0..100. Grudge from being conquered; caps loyalty at 100 - resentment and fades slowly. */
   resentment: number;
+  /** Goods being carried (transport). Whoever kills the carrier takes them. */
+  cargo: { resource: ResourceType; amount: number } | null;
   hp: number;
 }
 
@@ -67,6 +71,10 @@ export interface Building {
   hp: number;
   /** For capitals/branch cities: war damage suffered in their region (drives resentment on conquest). */
   devastation?: number;
+  /** Stored resources (buildings with `storage`). The nation's stock is the sum over its stores. */
+  store?: Record<ResourceType, number>;
+  /** Ticks until construction materials arrive at this site (construction waits until 0). */
+  delivery?: number;
 }
 
 /** Per-player settings from the management menu. */
@@ -76,9 +84,15 @@ export interface Management {
   popEnabled: boolean;
   /** Only grow if food income still covers consumption afterwards. */
   foodProtection: boolean;
+  /** Capital/branch city (building id) where new villagers appear; null = the capital. */
+  spawnAt: number | null;
 }
 
 export interface Player {
+  /**
+   * Resources: a read-only total over all of the nation's stores
+   * (kept in sync by storage.ts). Change resources only via storage.ts.
+   */
   id: PlayerId;
   name: string;
   color: string;

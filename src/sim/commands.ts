@@ -1,5 +1,6 @@
 import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES, TERRAIN, type BuildingType, type ResourceType } from './data';
-import { canAfford, pay, workersAt } from './economy';
+import { canAfford, workersAt } from './economy';
+import { deposit, fillStore, initStore, withdraw } from './storage';
 import { hexDistance, tilesInRadius } from './hex';
 import { findPath } from './pathfinding';
 import { getPlayer, logEvent, newVillager } from './state';
@@ -34,6 +35,8 @@ export type Command =
   | { type: 'diplomacy'; player: PlayerId; target: PlayerId; action: DiplomacyAction }
   /** Soldiers march to a tile and fight enemies (at war) there. */
   | { type: 'attack'; player: PlayerId; villager: number; tile: TileIndex }
+  /** Carry one resource (up to the carry capacity) from one own store to another. */
+  | { type: 'transport'; player: PlayerId; villager: number; from: number; to: number; resource: ResourceType; amount: number }
   /** System command (multiplayer server only): a player disconnected, AI takes over. */
   | { type: 'playerLeft'; player: PlayerId };
 
@@ -198,6 +201,11 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
     const i = cmd.settings.popIntervalSeconds;
     const { minIntervalSeconds: min, maxIntervalSeconds: max } = BALANCE.population;
     if (i !== undefined && !(i >= min && i <= max)) return `人口生產間隔必須在 ${min}～${max} 秒之間`;
+    const at = cmd.settings.spawnAt;
+    if (at !== undefined && at !== null) {
+      const b = state.buildings.find((x) => x.id === at);
+      if (!b || b.owner !== cmd.player || b.progress < 1 || (b.type !== 'camp' && b.type !== 'city')) return '只能選擇自己的主城或分城';
+    }
     return null;
   }
 
@@ -218,7 +226,8 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
     return null;
   }
 
-  const productive = cmd.type === 'gather' || cmd.type === 'work' || cmd.type === 'placeBuilding' || cmd.type === 'train';
+  const productive =
+    cmd.type === 'gather' || cmd.type === 'work' || cmd.type === 'placeBuilding' || cmd.type === 'train' || cmd.type === 'transport';
   if (v.soldier && productive) return '士兵不能從事生產工作（可以先解除士兵身分）';
   if (!v.soldier && cmd.type === 'garrison') return '只有士兵可以駐守';
   if (!v.soldier && cmd.type === 'attack') return '只有士兵可以進攻';
@@ -233,6 +242,18 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
       return '不能攻擊沒有宣戰的國家，請先宣戰';
     }
     if (findPath(state, v.tile, cmd.tile) === null) return '無法抵達該地塊';
+    return null;
+  }
+
+  if (cmd.type === 'transport') {
+    const from = state.buildings.find((x) => x.id === cmd.from);
+    const to = state.buildings.find((x) => x.id === cmd.to);
+    const ok = (b: typeof from) => b && b.owner === cmd.player && b.progress >= 1 && b.store;
+    if (!ok(from) || !ok(to)) return '只能在自己的城池或倉庫之間運送';
+    if (from!.id === to!.id) return '起點和終點不能相同';
+    if (!(cmd.amount > 0)) return '運送數量必須大於 0';
+    if ((from!.store![cmd.resource] ?? 0) < 1) return `起點沒有${RESOURCE_NAMES[cmd.resource]}`;
+    if (findPath(state, v.tile, from!.tile) === null || findPath(state, from!.tile, to!.tile) === null) return '無法抵達';
     return null;
   }
 
@@ -296,7 +317,9 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
 function startPlayer(state: GameState, player: PlayerId, tile: TileIndex): void {
   const p = getPlayer(state, player);
   p.startTile = tile;
-  state.buildings.push({ id: state.nextEntityId++, type: 'camp', owner: player, tile, progress: 1, hp: BUILDINGS.camp.hp });
+  const camp: GameState['buildings'][number] = { id: state.nextEntityId++, type: 'camp', owner: player, tile, progress: 1, hp: BUILDINGS.camp.hp };
+  state.buildings.push(camp);
+  fillStore(state, camp, BALANCE.startingStock);
   for (let i = 0; i < BALANCE.startingVillagers; i++) newVillager(state, player, tile);
   for (const idx of tilesInRadius(state, tile, BALANCE.camp.exploredRadius)) {
     p.knowledge[idx] = Knowledge.Explored;
@@ -348,6 +371,11 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
   }
 
   const v = ownVillager(state, cmd.player, cmd.villager)!;
+  // Goods being carried are dropped at the nearest store when the carrier gets another job.
+  if (v.cargo && cmd.type !== 'transport') {
+    deposit(state, v.owner, v.tile, v.cargo.resource, v.cargo.amount);
+    v.cargo = null;
+  }
   if (cmd.type === 'setSoldier') {
     if (v.soldier !== cmd.soldier) {
       v.soldier = cmd.soldier;
@@ -366,15 +394,22 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
 
   let target: TileIndex;
   if (cmd.type === 'placeBuilding') {
-    const p = getPlayer(state, cmd.player);
-    pay(p, BUILDINGS[cmd.building].cost);
     const id = state.nextEntityId++;
     const building = { id, type: cmd.building, owner: cmd.player, tile: cmd.tile, progress: 0, hp: BUILDINGS[cmd.building].hp } as GameState['buildings'][number];
     if (BUILDINGS[cmd.building].territory === 'foreign') building.host = state.tiles[cmd.tile].owner as PlayerId;
+    // Materials come from the nearest stores and must be carried to the site first.
+    const farthest = withdraw(state, cmd.player, cmd.tile, BUILDINGS[cmd.building].cost);
+    building.delivery = Math.round(farthest * BALANCE.transport.deliverySecondsPerTile * BALANCE.ticksPerSecond);
+    initStore(building);
     state.buildings.push(building);
     state.mapVersion++;
     target = cmd.tile;
     v.order = { kind: 'construct', building: id };
+  } else if (cmd.type === 'transport') {
+    const from = state.buildings.find((x) => x.id === cmd.from)!;
+    target = from.tile;
+    const amount = Math.min(cmd.amount, BALANCE.transport.carryCapacity);
+    v.order = { kind: 'transport', from: cmd.from, to: cmd.to, resource: cmd.resource, amount, stage: 'pickup' };
   } else if (cmd.type === 'train' || cmd.type === 'garrison') {
     const b = state.buildings.find((x) => x.id === cmd.building)!;
     target = b.tile;
@@ -403,6 +438,8 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
       break;
     case 'attack':
       v.order = { kind: 'attack', target: cmd.tile };
+      break;
+    case 'transport':
       break;
     case 'explore':
       v.order = { kind: 'explore', target: cmd.tile, progress: 0 };

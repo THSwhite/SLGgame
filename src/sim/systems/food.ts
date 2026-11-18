@@ -1,5 +1,6 @@
 import { BALANCE } from '../data';
 import { getModifiers } from '../modifiers';
+import { refreshStock, withdrawUpTo } from '../storage';
 import type { GameState, Player, Villager } from '../types';
 
 export function villagerFoodPerMinute(v: Villager, player: Player): number {
@@ -21,11 +22,16 @@ export function foodConsumptionPerMinute(state: GameState, player: Player): numb
   return total;
 }
 
+/** Once per second every villager eats from the store nearest to them (then the next nearest...). */
 export function runFood(state: GameState): void {
-  const perTick = 60 * BALANCE.ticksPerSecond;
+  if (state.tick % BALANCE.ticksPerSecond !== 0) return;
   for (const player of state.players) {
     if (player.startTile === -1) continue;
-    const need = foodConsumptionPerMinute(state, player) / perTick;
-    player.stock.food = Math.max(0, player.stock.food - need);
+    for (const v of state.villagers) {
+      if (v.owner !== player.id) continue;
+      const need = villagerFoodPerMinute(v, player) / 60;
+      withdrawUpTo(state, player.id, v.tile, 'food', need);
+    }
+    refreshStock(state, player);
   }
 }

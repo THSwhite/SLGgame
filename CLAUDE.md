@@ -55,6 +55,7 @@ src/client/
   audio.ts               music playlists (public/audio/music, CC0, see public/audio/CREDITS.md) + Web Audio synthesized SFX; client-only
   log.ts                 MessageLog: client-side history (events of the local player + chat), capped at 500
 src/ui/describe.ts       villagerStatus / activityIcon (also used by renderer icons and the units-on-tile list)
+src/ui/StorePanel.tsx     store contents of a camp/city/warehouse + transport order form
 src/ui/ChatLog.tsx       bottom-left log; Enter opens history + input; chat via controller.sendChat (net: {t:'chat'} through server)
 src/ui/Sound.tsx         useGameAudio(controller): SFX via controller.onIssue + relation-status watcher, music mood; SoundButton
 src/net/protocol.ts      ClientMessage/ServerMessage types, NATIONS, constants
@@ -80,6 +81,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Knowledge per player: `knowledge[i]` 0 Unknown (land/water only) / 1 Explored; `visible[i]` derived each tick. Territory is always visible.
 - Territory = land tiles within `territoryRadius` of *active* territory buildings; each building first holds its own tile, then first-come by building id. Territory signature includes owner (captures trigger a recompute). Watchtowers are active only while garrisoned (`isActive`).
 - Placement rules: `validatePlacement` (territory: connected / near / foreign / free). Branch city (`city`, territory 'free'): count ≤ owned tiles / `branchCity.territoryTilesPerCity`; construction gated by `minVillagersNearby` (`systems/cities.ts` `lacksWorkforce`); `runCities` (1/min) may make cities beyond `independenceDistanceShare` × map width from the nearest camp break away (removed with nearby villagers). `connectsToTerritory` enforces contiguous territory.
+- **Storage** (`src/sim/storage.ts`): resources live in `building.store` of buildings with `storage` (camp, city, warehouse); `player.stock` is a *derived total* refreshed by storage functions and at the end of every tick — never assign to it. Use `deposit` (nearest store with room; overflow further; lost if all full), `withdraw` (nearest first; returns farthest distance), `withdrawUpTo`, `fillStore` (ignores capacity). Income of a job = rate × `transportFactor(distance to depositTarget)`; production stalls when storage is full. `placeBuilding` sets `building.delivery` (ticks) from the farthest store used; construction waits while it is > 0. Food upkeep: each villager eats from its nearest store (1/s). Population spawns at `management.spawnAt` (camp/city) and pays there first. `transport` order carries one resource (≤ `transport.carryCapacity`) between own stores; killing a carrier deposits the `cargo` for the killer. In tests use `setStock(s, owner, {...})` from helpers.
 - Population grows only if `populationBlocked` is null (cap from camp+houses; food protection: income ≥ consumption + newcomer).
 - Soldiers: level ≥ 2, cannot gather/work/build/train. Training is uninterruptible once paid.
 - Loyalty decays when unsupervised; defection = subverted by nearest foreign territory within range, else leaves.
@@ -88,10 +90,10 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Combat only between nations with relation status `war`; `attack` command refuses tiles of nations not at war.
 - Support: a stationary soldier with no enemy on its tile hits an enemy on an adjacent tile where its nation is fighting (own unit/building present), at `combat.supportDamageMultiplier`; supporters are not hit back.
 - Capture: a complete building with `capturable` that drops to 0 HP changes owner (HP → `captureHpShare`); others are destroyed and plundered. Jobs check `b.owner === v.owner` so former owners stop working there.
-- Conquest (`systems/conquest.ts`): capturing a camp/city calls `annex`: region (territory radius + `regionExtraRadius`) buildings + villagers change owner, a share of stock moves; the loser's *last* camp annexes the whole nation. War damage in a seat's region accumulates in `building.devastation` (kills, building HP damage, destruction) and becomes the conquered villagers' `resentment`.
+- Conquest (`systems/conquest.ts`): capturing a camp/city calls `annex`: region (territory radius + `regionExtraRadius`) buildings (with their stores) + villagers change owner; the loser's *last* camp annexes the whole nation. War damage in a seat's region accumulates in `building.devastation` (kills, building HP damage, destruction) and becomes the conquered villagers' `resentment`.
 - Villager `resentment` caps loyalty (100 − resentment) and decays slowly; loyalty scales `workEfficiency` (down to `loyalty.minWorkEfficiency`); loyalty below threshold may defect even inside territory.
 - Independence (`declareIndependence` in `systems/cities.ts`) creates a **new AI player mid-game** (`makePlayer` in `state.ts`, `addRelationsFor` in diplomacy): the city becomes its camp. `state.players` can therefore grow during a game — never assume a fixed player count (UI, net, hash all iterate `state.players`).
-- Elimination: no villagers or no complete territory building. Victory: conquest / territory share / time limit (score `nationScore`).
+- Elimination: no villagers or no complete territory building. Victory: conquest / territory share from `victory.territorySchedule` (`territoryThreshold`, none before the first step) / at `timeLimitMinutes` the largest land share (ties: `nationScore`).
 
 ## How to add things
 - **Balance tweak**: edit JSON only.
@@ -111,9 +113,9 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Single-player `GameController` applies queued commands at the next tick; commands validated against the *current* state (a command depending on a not-yet-applied one, e.g. setSoldier then garrison in the same 100 ms, is rejected — scripts must wait a tick).
 
 ## Testing
-- `tests/sim.test.ts` (M1), `m2`…`m5` (feature rules), `city.test.ts` (branch cities, independence → new nation), `conquest.test.ts` (annexation, devastation, resentment), `wood.test.ts` (wood availability across seeds, lumber camp), `net.test.ts` (real server on port 0 + two headless peers; checks per-frame hash equality and AI takeover).
+- `tests/sim.test.ts` (M1), `m2`…`m5` (feature rules), `storage.test.ts` (stores, transport factor, delivery, spawn, transport, cargo capture), `city.test.ts` (branch cities, independence → new nation), `conquest.test.ts` (annexation, devastation, resentment), `wood.test.ts` (wood availability across seeds, lumber camp), `net.test.ts` (real server on port 0 + two headless peers; checks per-frame hash equality and AI takeover).
 - Use helpers in `tests/helpers.ts`. Tests that mutate `BALANCE` must restore it (see `m5.test.ts` afterEach).
-- AI balance check (not committed): write a temporary test that runs 3 AIs (+ an idle human) for 60 min on a few seeds and logs land share / pop / soldiers / towers / houses / relations every 15 min. Last tuning: top AI ≈ 20–37% land at 30 min; territory victory around 32–45 min when the human does nothing. Delete the test afterwards.
+- AI balance check (not committed): write a temporary test that runs 3 AIs (+ an idle human) for 60 min on a few seeds and logs land share / pop / soldiers / towers / houses / relations every 15 min. Last tuning (with storage + territory schedule): most games run to 60 min (time victory by land); a snowballing conqueror can win by territory around 30 min. AI keeps 0–9 warehouses. Delete the test afterwards.
 
 ## Browser testing
 - Chromium + Playwright are preinstalled in the cloud environment (`require('playwright')`, no install).

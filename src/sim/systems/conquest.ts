@@ -1,6 +1,7 @@
 import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES } from '../data';
 import { hexDistance } from '../hex';
 import { getPlayer, logEvent } from '../state';
+import { emptyStore, refreshStock } from '../storage';
 import type { Building, GameState, PlayerId, TileIndex } from '../types';
 import { isComplete } from './territory';
 
@@ -41,12 +42,6 @@ export function annex(state: GameState, seat: Building, from: PlayerId, to: Play
   const inRegion = (tile: TileIndex) => lastCapital || hexDistance(state, seat.tile, tile) <= radius;
 
   const people = state.villagers.filter((v) => v.owner === from && inRegion(v.tile));
-  const total = state.villagers.filter((v) => v.owner === from).length;
-  const share = lastCapital
-    ? 1
-    : seat.type === 'camp'
-      ? cfg.capitalStockShare
-      : Math.max(cfg.branchStockShareMin, total ? people.length / total : 0);
 
   const resentment = Math.min(cfg.maxResentment, Math.round(seat.devastation ?? 0));
   seat.devastation = 0;
@@ -54,11 +49,14 @@ export function annex(state: GameState, seat: Building, from: PlayerId, to: Play
   // Buildings: consulates of the loser are closed, everything else changes hands.
   const consulatesGone = state.buildings.filter((b) => b.owner === from && b.type === 'consulate' && inRegion(b.tile));
   state.buildings = state.buildings.filter((b) => !consulatesGone.includes(b));
+  // Stores (and the goods in them) change hands with their buildings.
   let buildings = 0;
+  const goods = emptyStore();
   for (const b of state.buildings) {
     if (b.owner !== from || !inRegion(b.tile)) continue;
     b.owner = to;
     if (isSeat(b)) b.devastation = 0;
+    if (b.store) for (const r of RESOURCE_TYPES) goods[r] += b.store[r];
     buildings++;
   }
 
@@ -72,14 +70,9 @@ export function annex(state: GameState, seat: Building, from: PlayerId, to: Play
     v.loyalty = Math.min(v.loyalty, 100 - resentment);
   }
 
-  const taken: string[] = [];
-  for (const r of RESOURCE_TYPES) {
-    const amount = Math.floor(loser.stock[r] * share);
-    if (amount <= 0) continue;
-    loser.stock[r] -= amount;
-    winner.stock[r] += amount;
-    taken.push(`${RESOURCE_NAMES[r]} ${amount}`);
-  }
+  const taken = RESOURCE_TYPES.filter((r) => goods[r] >= 1).map((r) => `${RESOURCE_NAMES[r]} ${Math.floor(goods[r])}`);
+  refreshStock(state, loser);
+  refreshStock(state, winner);
   state.mapVersion++;
 
   const what = lastCapital ? `${loser.name} 全境` : seat.type === 'camp' ? `${loser.name} 的主城區域` : `${loser.name} 的分城區域`;

@@ -6,14 +6,14 @@ import { cityLimit, independenceChance, independenceThreshold } from '../src/sim
 import { recomputeTerritory } from '../src/sim/systems/territory';
 import { populationCap } from '../src/sim/systems/population';
 import { newVillager } from '../src/sim/state';
-import { addBuilding, exploreAll, ok, run, startAt } from './helpers';
+import { addBuilding, exploreAll, ok, run, startAt, setStock } from './helpers';
 import type { GameState } from '../src/sim/types';
 
 function rich(s: GameState) {
   const p = s.players[0];
-  p.stock.wood = 5000;
-  p.stock.stone = 5000;
-  p.stock.food = 5000;
+  setStock(s, p.id, { wood: 5000 });
+  setStock(s, p.id, { stone: 5000 });
+  setStock(s, p.id, { food: 5000 });
   p.management.popEnabled = false;
   exploreAll(s);
 }

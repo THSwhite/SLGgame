@@ -17,6 +17,8 @@ import { enemiesOnTile } from '../sim/systems/combat';
 import { cityCount, cityLimit, distanceToCapital, independenceChance, independenceThreshold, lacksWorkforce, villagersNearby } from '../sim/systems/cities';
 import { getRelation } from '../sim/systems/diplomacy';
 import { EndOverlay } from './EndOverlay';
+import { StorePanel } from './StorePanel';
+import { storageCapacity, storesOf } from '../sim/storage';
 import { useGameAudio, SoundButton } from './Sound';
 import { ChatLog } from './ChatLog';
 import type { NetGameController } from '../client/net';
@@ -239,6 +241,10 @@ function StartOverlay({ controller, onStarted }: { controller: GameController; o
   );
 }
 
+function totalCapacity(state: GameState, owner: number): number {
+  return storesOf(state, owner).reduce((sum, b) => sum + storageCapacity(b), 0);
+}
+
 function fmtRate(n: number): string {
   return `${n >= 0 ? '+' : ''}${n.toFixed(1)}/分`;
 }
@@ -273,7 +279,9 @@ function TopBar({
       {RESOURCE_TYPES.map((r) => (
         <div key={r} className={`res res-${r}`}>
           <span className="res-name">{RESOURCE_NAMES[r]}</span>
-          <span className="res-val">{Math.floor(me.stock[r])}</span>
+          <span className="res-val" title={`所有城池與倉庫合計，上限 ${totalCapacity(state, me.id)}`}>
+            {Math.floor(me.stock[r])}
+          </span>
           {(net[r] !== 0 || r === 'food') && (
             <span className={`res-delta ${net[r] < 0 ? 'neg' : 'pos'}`}>{fmtRate(net[r])}</span>
           )}
@@ -355,6 +363,23 @@ function ManagementPanel({ controller, state, onClose }: { controller: GameContr
         每位新村民消耗糧食 {pop.foodCostPerVillager}。人口上限 {populationCap(state, me)} = 營地 {BUILDINGS.camp.popCap} + 民宅 {houses} ×{' '}
         {BUILDINGS.house.popCap}
       </div>
+      <label className="slider">
+        新村民出生地
+        <select
+          value={m.spawnAt ?? ''}
+          onChange={(e) => set({ spawnAt: e.target.value === '' ? null : Number(e.target.value) })}
+        >
+          <option value="">主城</option>
+          {state.buildings
+            .filter((b) => b.owner === me.id && b.progress >= 1 && (b.type === 'camp' || b.type === 'city'))
+            .map((b) => (
+              <option key={b.id} value={b.id}>
+                {BUILDINGS[b.type].name} #{b.id}（糧食 {Math.floor(b.store?.food ?? 0)}）
+              </option>
+            ))}
+        </select>
+      </label>
+      <div className="hint">出生時的糧食優先從該城池的倉儲扣除。</div>
       <h3>糧食</h3>
       <div>
         收入 {fmtRate(income)}　消耗 {fmtRate(-consumption)}　淨值{' '}
@@ -485,6 +510,9 @@ function BuildingInfo({ controller, state, tile }: { controller: GameController;
       {b.progress < 1 ? (
         <>
           <div>建造中 {Math.floor(b.progress * 100)}%</div>
+          {(b.delivery ?? 0) > 0 && (
+            <div className="warn">物資運送中：還要 {Math.ceil((b.delivery ?? 0) / BALANCE.ticksPerSecond)} 秒才會送達工地</div>
+          )}
           {def.minVillagersNearby !== undefined && (
             <div className={lacksWorkforce(state, b) ? 'neg' : 'pos'}>
               周圍村民 {villagersNearby(state, b)}/{def.minVillagersNearby}
@@ -544,6 +572,7 @@ function BuildingInfo({ controller, state, tile }: { controller: GameController;
           )}
         </>
       )}
+      <StorePanel controller={controller} state={state} b={b} />
       {mine && vid !== null && b.progress >= 1 && def.trainingSlots > 0 && (
         <div className="actions">
           <button onClick={() => controller.issue({ type: 'train', player: controller.localPlayer, villager: vid, building: b.id })}>

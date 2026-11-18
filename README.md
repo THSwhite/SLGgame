@@ -80,7 +80,8 @@ npm install        # 第一次執行前，安裝套件
 | `independentNations` | 分城獨立後成立的新國家的名字與顏色（依序使用） | 6 組 |
 | `ai.thinkEverySeconds` | AI 多久做一次決定 | 2 |
 | `combat` | 士兵／平民的攻擊力、各等級生命值、恢復速度、地形與駐守的防禦加成、掠奪比例、支援作戰的傷害倍率（`supportDamageMultiplier`）、佔領後建築剩下的生命比例（`captureHpShare`） | 支援 0.5、佔領 0.3，其他見檔案 |
-| `victory` | 領土勝利需要的比例、時間限制（分鐘）。覺得 AI 太快達成領土勝利，可以把 `territoryShare` 調高（例如 0.5） | 40%、60 分鐘 |
+| `victory` | `territorySchedule`：從第幾分鐘起、領土達到多少比例即獲勝（取最新一階）；`timeLimitMinutes`：時間到時領土最多者獲勝 | 20 分 80%、30 分 70%、40 分 60%、50 分 50%；60 分鐘 |
+| `transport` | 物流：工作地點離最近倉儲每遠 1 格，收入的折減係數（收入 × 1 ÷ (1 + 係數 × 距離)）；建造物資每格的運送秒數；運送村民一次能搬多少 | 0.08、1.5 秒、50 |
 
 ### 3.2 `buildings.json`：建築
 
@@ -110,6 +111,7 @@ npm install        # 第一次執行前，安裝套件
 | `rateModifier` | 由哪個科技／國策效果來加成產量，例如 `"farmRate"`、`"mineRate"`、`"lumberRate"` |
 | `hp` | 生命值 |
 | `minVillagersNearby` | 建造時，建築所在格和相鄰 6 格內至少要有幾位自己的村民，工程才會推進（分城 3） |
+| `storage` | 倉儲容量（每種資源的上限）。主城 600、分城 400、倉庫 500；有這個欄位的建築才能存放資源 |
 | `capturable` | 戰爭中被打到 0 血時是「佔領」（`true`，建築變成攻擊方的）還是「摧毀」（`false`，例如領事館） |
 
 > **新增一種建築**：只改 JSON 不夠。還需要在 `src/client/renderer.ts` 的 `drawBuilding` 加上它的圖案；如果它有特殊效果，也要寫程式。可以直接請 Claude Code 幫忙。

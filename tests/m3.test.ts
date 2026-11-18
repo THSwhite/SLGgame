@@ -6,7 +6,7 @@ import { validateCommand } from '../src/sim/commands';
 import { buildingRatePerWorker } from '../src/sim/economy';
 import { foodConsumptionPerMinute } from '../src/sim/systems/food';
 import { isSupervised } from '../src/sim/systems/loyalty';
-import { addBuilding, exploreAll, freeTile, ok, run, startAt } from './helpers';
+import { addBuilding, exploreAll, freeTile, ok, run, startAt, setStock } from './helpers';
 import type { GameState } from '../src/sim/types';
 
 function lv2(s: GameState, idx = 0) {
@@ -126,7 +126,7 @@ describe('research', () => {
   it('researchers produce points that complete the chosen tech', () => {
     const s = startAt();
     s.players[0].management.popEnabled = false;
-    s.players[0].stock.food = 1000;
+    setStock(s, 0, { food: 1000 });
     const lab = addBuilding(s, 'research', freeTile(s));
     const farmTile = freeTile(s, 0, (i) => TERRAIN[s.tiles[i].terrain].farmable);
     const farm = addBuilding(s, 'farm', farmTile);

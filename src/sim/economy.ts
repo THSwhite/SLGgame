@@ -4,6 +4,7 @@ import { getModifiers, type Modifiers } from './modifiers';
 import { getPlayer } from './state';
 import type { Building, GameState, Player, Villager } from './types';
 import { alliedCount, tradePerMinute } from './systems/diplomacy';
+import { depositTarget, transportFactor } from './storage';
 
 export type Rates = Record<ResourceType, number>;
 
@@ -78,19 +79,26 @@ export function workersAt(state: GameState, buildingId: number): Villager[] {
   return state.villagers.filter((v) => v.order.kind === 'work' && v.order.building === buildingId);
 }
 
+/** Share of a job's output that reaches storage per second (0 if every store is full). */
+export function deliveryFactor(state: GameState, owner: number, tile: number, r: ResourceType): number {
+  const target = depositTarget(state, owner, tile, r);
+  return target ? transportFactor(target.distance) : 0;
+}
+
 /** Current production per second of one villager (0 while travelling). */
 export function villagerRate(state: GameState, v: Villager): Rates {
   const out = zeroRates();
   if (v.path.length > 0) return out;
   const eff = workEfficiency(state, v);
   if (v.order.kind === 'gather') {
-    out[v.order.resource] = gatherRate(getPlayer(state, v.owner), v.order.resource) * eff;
+    const r = v.order.resource;
+    out[r] = gatherRate(getPlayer(state, v.owner), r) * eff * deliveryFactor(state, v.owner, v.tile, r);
   } else if (v.order.kind === 'work') {
     const id = v.order.building;
     const b = state.buildings.find((x) => x.id === id);
     if (b) {
       const r = buildingRatePerWorker(state, b);
-      for (const k of RESOURCE_TYPES) out[k] = r[k] * eff;
+      for (const k of RESOURCE_TYPES) if (r[k] > 0) out[k] = r[k] * eff * deliveryFactor(state, v.owner, b.tile, k);
     }
   }
   return out;
@@ -123,6 +131,4 @@ export function canAfford(player: Player, cost: Partial<Rates>): boolean {
   return RESOURCE_TYPES.every((r) => player.stock[r] >= (cost[r] ?? 0));
 }
 
-export function pay(player: Player, cost: Partial<Rates>): void {
-  for (const r of RESOURCE_TYPES) player.stock[r] -= cost[r] ?? 0;
-}
+

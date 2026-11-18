@@ -4,7 +4,7 @@ import { BALANCE, TERRAIN } from '../src/sim/data';
 import { hexDistance } from '../src/sim/hex';
 import { MIN_START_DISTANCE, validateCommand, type Command } from '../src/sim/commands';
 import { getRelation, tradePerMinute } from '../src/sim/systems/diplomacy';
-import { exploreAll, ok, run, solidLand, hasFarmland } from './helpers';
+import { exploreAll, ok, run, solidLand, hasFarmland, setStock } from './helpers';
 import type { GameState } from '../src/sim/types';
 
 /** Human player 0 plus `ais` AI nations; the human starts at the first good tile. */
@@ -94,9 +94,9 @@ describe('diplomacy', () => {
     exploreAll(s, 0);
     exploreAll(s, 1);
     for (const p of s.players) {
-      p.stock.wood = 500;
-      p.stock.stone = 500;
-      p.stock.food = 1000;
+      setStock(s, p.id, { wood: 500 });
+      setStock(s, p.id, { stone: 500 });
+      setStock(s, p.id, { food: 1000 });
       p.management.popEnabled = false;
     }
     const rel = getRelation(s, 0, 1);

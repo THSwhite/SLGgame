@@ -154,3 +154,10 @@ input { background: #1b2430; color: var(--text); border: 1px solid var(--border)
 .units-on-tile { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
 .unit-row { display: grid; grid-template-columns: 12px auto 1fr; gap: 6px; align-items: center; font-size: 12px; }
 .unit-row .status { text-align: right; }
+
+.store { margin-top: 6px; }
+.store-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+.store-grid .progress { height: 4px; margin-top: 2px; }
+.transport { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 6px; }
+.transport .hint { width: 100%; margin: 0; }
+select { background: #1b2430; color: var(--text); border: 1px solid var(--border); border-radius: 5px; padding: 3px 6px; font: inherit; }

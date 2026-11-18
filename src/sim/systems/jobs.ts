@@ -1,6 +1,8 @@
 import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES } from '../data';
 import { buildingRatePerWorker, gatherRate, researchRatePerWorker, workEfficiency, workersAt } from '../economy';
 import { getModifiers } from '../modifiers';
+import { deposit as depositGoods, depositTarget, refreshStock, storeSpace, transportFactor, withdraw } from '../storage';
+import { findPath } from '../pathfinding';
 import { moveCost } from '../pathfinding';
 import { getPlayer, logEvent, maxVillagerHp } from '../state';
 import { Knowledge, type Building, type GameState, type Villager } from '../types';
@@ -82,9 +84,13 @@ function stepVillager(state: GameState, v: Villager): void {
         v.order = { kind: 'idle' };
         return;
       }
-      const amount = Math.min(deposit.amount, (gatherRate(getPlayer(state, v.owner), order.resource) * eff) / tps);
+      // Goods go to the nearest store with room; the farther it is, the slower they arrive.
+      const target = depositTarget(state, v.owner, v.tile, order.resource);
+      if (!target) return; // every store is full: wait
+      const rate = gatherRate(getPlayer(state, v.owner), order.resource) * eff * transportFactor(target.distance);
+      const amount = Math.min(deposit.amount, rate / tps);
       deposit.amount -= amount;
-      getPlayer(state, v.owner).stock[order.resource] += amount;
+      depositGoods(state, v.owner, v.tile, order.resource, amount);
       if (deposit.amount <= 1e-9) {
         tile.deposits = tile.deposits.filter((d) => d !== deposit);
         state.mapVersion++;
@@ -99,6 +105,8 @@ function stepVillager(state: GameState, v: Villager): void {
         v.order = b && BUILDINGS[b.type].workerSlots > workersAt(state, b.id).length ? { kind: 'work', building: b.id } : { kind: 'idle' };
         return;
       }
+      // Materials must arrive from the stores first.
+      if ((b.delivery ?? 0) > 0) return;
       // Some buildings (branch cities) need a crowd on site before work can start.
       if (lacksWorkforce(state, b)) return;
       const speed = getModifiers(getPlayer(state, v.owner)).buildSpeed;
@@ -117,8 +125,10 @@ function stepVillager(state: GameState, v: Villager): void {
       player.researchPoints += (researchRatePerWorker(state, b) * eff) / tps;
       const tile = state.tiles[b.tile];
       for (const r of RESOURCE_TYPES) {
-        let amount = (rates[r] * eff) / tps;
-        if (amount <= 0) continue;
+        if (rates[r] <= 0) continue;
+        const target = depositTarget(state, v.owner, b.tile, r);
+        if (!target) continue; // storage full
+        let amount = (rates[r] * eff * transportFactor(target.distance)) / tps;
         if (r === 'ore') {
           // Ore comes out of the tile's finite deposit.
           const d = tile.deposits.find((x) => x.resource === 'ore');
@@ -131,7 +141,7 @@ function stepVillager(state: GameState, v: Villager): void {
             logEvent(state, v.owner, `礦場的礦脈已經枯竭`);
           }
         }
-        player.stock[r] += amount;
+        depositGoods(state, v.owner, b.tile, r, amount);
       }
       return;
     }
@@ -145,7 +155,7 @@ function stepVillager(state: GameState, v: Villager): void {
       if (!order.paid) {
         // Wait at the barracks until the food for training is available.
         if (player.stock.food < BALANCE.training.foodCost) return;
-        player.stock.food -= BALANCE.training.foodCost;
+        withdraw(state, v.owner, b.tile, { food: BALANCE.training.foodCost });
         order.paid = true;
       }
       // Training improves the body, so it is not slowed by the trainee's own efficiency.
@@ -156,6 +166,42 @@ function stepVillager(state: GameState, v: Villager): void {
         v.order = { kind: 'idle' };
         logEvent(state, v.owner, `村民 #${v.id} 訓練完成，升到 LV${v.level}（可以從軍）`);
       }
+      return;
+    }
+    case 'transport': {
+      const from = findBuilding(state, order.from, v.owner);
+      const to = findBuilding(state, order.to, v.owner);
+      if (order.stage === 'pickup') {
+        if (!from?.store || !to) {
+          v.order = { kind: 'idle' };
+          return;
+        }
+        const amount = Math.min(order.amount, from.store[order.resource]);
+        if (amount <= 0) {
+          v.order = { kind: 'idle' };
+          return;
+        }
+        from.store[order.resource] -= amount;
+        refreshStock(state, getPlayer(state, v.owner));
+        v.cargo = { resource: order.resource, amount };
+        order.stage = 'deliver';
+        v.path = findPath(state, v.tile, to.tile) ?? [];
+        return;
+      }
+      // Delivering: unload into the destination (overflow / lost destination: nearest other store).
+      if (v.cargo) {
+        let left = v.cargo.amount;
+        if (to?.store && to.tile === v.tile) {
+          const put = Math.min(left, storeSpace(to, v.cargo.resource));
+          to.store[v.cargo.resource] += put;
+          left -= put;
+        }
+        if (left > 0) depositGoods(state, v.owner, v.tile, v.cargo.resource, left);
+        refreshStock(state, getPlayer(state, v.owner));
+        logEvent(state, v.owner, `村民 #${v.id} 運送了 ${RESOURCE_NAMES[v.cargo.resource]} ${Math.floor(v.cargo.amount)}`);
+        v.cargo = null;
+      }
+      v.order = { kind: 'idle' };
       return;
     }
     case 'attack': {
@@ -173,5 +219,7 @@ function stepVillager(state: GameState, v: Villager): void {
 }
 
 export function runJobs(state: GameState): void {
+  // Construction materials on their way to sites.
+  for (const b of state.buildings) if ((b.delivery ?? 0) > 0) b.delivery!--;
   for (const v of state.villagers) stepVillager(state, v);
 }

@@ -31,6 +31,7 @@ export function newVillager(state: GameState, owner: PlayerId, tile: TileIndex):
     soldier: false,
     loyalty: BALANCE.loyalty.start,
     resentment: 0,
+    cargo: null,
     hp: BALANCE.combat.hp['1'],
   };
   state.villagers.push(v);
@@ -53,7 +54,7 @@ export function makePlayer(
     color: setup.color,
     isAI: setup.isAI,
     startTile: -1,
-    stock: { ...BALANCE.startingStock },
+    stock: { food: 0, wood: 0, stone: 0, ore: 0 },
     knowledge: new Array(tileCount).fill(Knowledge.Unknown),
     visible: new Array(tileCount).fill(0),
     atWar: false,
@@ -61,6 +62,7 @@ export function makePlayer(
       popIntervalSeconds: BALANCE.population.defaultIntervalSeconds,
       popEnabled: true,
       foodProtection: true,
+      spawnAt: null,
     },
     popProgress: 0,
     researched: [],

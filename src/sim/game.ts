@@ -10,6 +10,7 @@ import { updateTerritory } from './systems/territory';
 import { updateVision } from './systems/vision';
 import type { GameState } from './types';
 import { makePlayer } from './state';
+import { refreshAllStocks } from './storage';
 import { Rng } from './rng';
 import { makeRelations } from './systems/diplomacy';
 import { runDiplomacy } from './systems/diplomacy';
@@ -103,5 +104,7 @@ export function stepGame(state: GameState, commands: Command[] = []): Array<stri
   runVictory(state);
   updateTerritory(state);
   updateVision(state);
+  // Captures, destruction and eliminations move or remove stores.
+  refreshAllStocks(state);
   return results;
 }
