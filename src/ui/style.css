@@ -141,3 +141,12 @@ input { background: #1b2430; color: var(--text); border: 1px solid var(--border)
 
 .sound { position: relative; }
 .sound-panel { top: 36px; right: 0; width: 220px; z-index: 6; }
+
+.events { cursor: pointer; }
+.events.open { cursor: default; width: min(560px, calc(100% - 16px)); z-index: 4; }
+.log-list { max-height: 40vh; overflow-y: auto; margin-bottom: 6px; }
+.log-line { padding: 1px 0; }
+.tag-event { color: var(--muted); }
+.tag-nation { font-weight: 700; }
+.log-chat { color: #fff; }
+.chat-input input { width: 100%; }

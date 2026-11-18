@@ -20,6 +20,7 @@ const NATIONS = [
   { name: '金沙帝國', color: '#fdd835' },
 ];
 const SPEEDS = [0, 1, 2, 5];
+const MAX_CHAT_LENGTH = 120;
 
 interface Client {
   id: number;
@@ -229,6 +230,12 @@ export function startServer(opts: { port?: number; staticDir?: string; log?: boo
           if (!room || !room.started || !SPEEDS.includes(msg.speed)) return;
           room.speed = msg.speed;
           broadcast(room, { t: 'speed', speed: room.speed });
+          return;
+        }
+        case 'chat': {
+          if (!room || !room.started) return;
+          const text = String(msg.text ?? '').replace(/\s+/g, ' ').trim().slice(0, MAX_CHAT_LENGTH);
+          if (text) broadcast(room, { t: 'chat', player: client.player, text });
           return;
         }
         case 'hash': {

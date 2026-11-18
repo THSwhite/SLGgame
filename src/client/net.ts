@@ -3,6 +3,7 @@ import { validateCommand, type Command } from '../sim/commands';
 import { DEFAULT_PORT, HASH_EVERY_FRAMES, type ClientMessage, type LobbyOptions, type ServerMessage } from '../net/protocol';
 import { stateHash } from '../net/hash';
 import { GameController, type Speed } from './controller';
+import { cleanChat } from './log';
 
 export function defaultServerUrl(): string {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -95,6 +96,9 @@ export class NetClient {
         break;
       case 'left':
         break;
+      case 'chat':
+        this.controller?.log.addChat(this.controller.state.tick, msg.player, msg.text);
+        break;
       case 'desync':
         if (this.controller) this.controller.desync = true;
         break;
@@ -149,6 +153,12 @@ export class NetGameController extends GameController {
   override update() {}
 
   override newGame() {}
+
+  /** Chat goes through the server so every player sees the same order (including us). */
+  override sendChat(text: string): void {
+    const clean = cleanChat(text);
+    if (clean) this.client.send({ t: 'chat', text: clean });
+  }
 
   onStep(frame: number, n: number, cmds: Command[]) {
     const results = n === 0 ? applyCommands(this.state, cmds) : stepGame(this.state, cmds);

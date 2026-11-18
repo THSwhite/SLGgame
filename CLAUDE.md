@@ -53,6 +53,8 @@ src/client/
   net.ts                 NetClient (lobby/WebSocket) + NetGameController (overrides issue/update/setSpeed; driven by server 'step')
   renderer.ts            PixiJS MapRenderer: tile layer cached by state.mapVersion; units/buildings/overlay redrawn per frame
   audio.ts               music playlists (public/audio/music, CC0, see public/audio/CREDITS.md) + Web Audio synthesized SFX; client-only
+  log.ts                 MessageLog: client-side history (events of the local player + chat), capped at 500
+src/ui/ChatLog.tsx       bottom-left log; Enter opens history + input; chat via controller.sendChat (net: {t:'chat'} through server)
 src/ui/Sound.tsx         useGameAudio(controller): SFX via controller.onIssue + relation-status watcher, music mood; SoundButton
 src/net/protocol.ts      ClientMessage/ServerMessage types, NATIONS, constants
 src/net/hash.ts          stateHash(state) — FNV-1a of a state summary (desync detection)
@@ -119,6 +121,10 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Building jobs (farm/mine/lumber) never deplete, so workers never go idle on their own; the AI's `rebalance()` pulls one worker per think for houses, unattended sites, missing wood producers or big surpluses. Keep that in mind when adding new infinite jobs.
 - Validation of stale/queued commands (see above). Lobby has no reconnect.
 - `server/server.ts` duplicates `NATIONS`/constants from `src/net/protocol.ts` so it runs with plain `node`; keep both in sync.
+
+## Chat
+- Chat is **not** part of the simulation (no Command): `GameController.sendChat` adds locally; `NetGameController.sendChat` sends `{t:'chat'}`, the server trims/limits (120 chars) and broadcasts `{t:'chat', player, text}` to everyone incl. the sender.
+- Global keyboard shortcuts must ignore events whose target is an INPUT/TEXTAREA (see `Game` onKey and `ChatLog`).
 
 ## Audio
 - Never play sounds from `src/sim`. UI hooks: `GameController.onIssue(cmd, error)` (set by `useGameAudio`) and a 250 ms watcher on the local player's relations.

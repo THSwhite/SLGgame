@@ -12,6 +12,7 @@ export const DEFAULT_PORT = 8787;
 export const MAX_PLAYERS = 4;
 /** Clients report a state hash every this many frames, to detect desyncs. */
 export const HASH_EVERY_FRAMES = 50;
+export const MAX_CHAT_LENGTH = 120;
 
 export const NATIONS = [
   { name: '赤焰王國', color: '#e53935' },
@@ -38,7 +39,8 @@ export type ClientMessage =
   | { t: 'start' }
   | { t: 'cmd'; cmd: Command }
   | { t: 'speed'; speed: number }
-  | { t: 'hash'; frame: number; hash: string };
+  | { t: 'hash'; frame: number; hash: string }
+  | { t: 'chat'; text: string };
 
 export type ServerMessage =
   | { t: 'lobby'; code: string; you: number; host: number; players: LobbyPlayer[]; options: LobbyOptions }
@@ -48,4 +50,5 @@ export type ServerMessage =
   | { t: 'step'; frame: number; n: number; cmds: Command[] }
   | { t: 'speed'; speed: number }
   | { t: 'left'; name: string }
-  | { t: 'desync'; frame: number };
+  | { t: 'desync'; frame: number }
+  | { t: 'chat'; player: number; text: string };

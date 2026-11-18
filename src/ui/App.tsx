@@ -17,6 +17,7 @@ import { enemiesOnTile } from '../sim/systems/combat';
 import { getRelation } from '../sim/systems/diplomacy';
 import { EndOverlay } from './EndOverlay';
 import { useGameAudio, SoundButton } from './Sound';
+import { ChatLog } from './ChatLog';
 import type { NetGameController } from '../client/net';
 import { ResearchPanel } from './ResearchPanel';
 import { DiplomacyPanel, pendingProposals } from './DiplomacyPanel';
@@ -123,6 +124,9 @@ export function Game({ controller, onExit }: { controller: GameController; onExi
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Don't steal keys while the player is typing.
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
       if (e.key === ' ') {
         e.preventDefault();
         controller.setSpeed(controller.speed === 0 ? 1 : 0);
@@ -138,7 +142,6 @@ export function Game({ controller, onExit }: { controller: GameController; onExi
   }, [controller]);
 
   const s = controller.state;
-  const me = s.players[controller.localPlayer];
 
   return (
     <div className="app">
@@ -164,7 +167,7 @@ export function Game({ controller, onExit }: { controller: GameController; onExi
           {showManagement && <ManagementPanel controller={controller} state={s} onClose={() => setShowManagement(false)} />}
           <VillagerPanel controller={controller} state={s} onFocus={(t) => rendererRef.current?.centerOn(t)} />
           <TilePanel controller={controller} state={s} />
-          <EventLog state={s} playerId={me.id} />
+          <ChatLog controller={controller} />
         </>
       )}
     </div>
@@ -453,7 +456,7 @@ function VillagerPanel({
         <br />
         Shift＋點清單：多選 ／ 士兵右鍵敵方：進攻
         <br />
-        空白鍵：暫停 ／ 1 2 3：速度 ／ M：管理 ／ R：研究 ／ D：外交
+        空白鍵：暫停 ／ 1 2 3：速度 ／ M：管理 ／ R：研究 ／ D：外交 ／ Enter：訊息
       </div>
     </div>
   );
@@ -632,16 +635,3 @@ function TilePanel({ controller, state }: { controller: GameController; state: G
   );
 }
 
-function EventLog({ state, playerId }: { state: GameState; playerId: number }) {
-  const events = state.events.filter((e) => e.player === playerId).slice(-6).reverse();
-  if (events.length === 0) return null;
-  return (
-    <div className="panel events">
-      {events.map((e, i) => (
-        <div key={`${e.tick}-${i}`}>
-          <span className="time">{formatTime(e.tick)}</span> {e.message}
-        </div>
-      ))}
-    </div>
-  );
-}

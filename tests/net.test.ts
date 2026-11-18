@@ -159,3 +159,20 @@ describe('multiplayer relay', () => {
     expect(host.state!.players[1].isAI).toBe(true);
   });
 });
+
+describe('chat', () => {
+  it('relays chat to every player with the sender nation, trimmed and length-limited', async () => {
+    const { host } = await room(2);
+    const guest = peers[1];
+    host.send({ t: 'start' });
+    await guest.waitFor('start');
+    guest.send({ t: 'chat', text: '  你好   盟友  ' });
+    const a = await host.waitFor('chat');
+    const b = await guest.waitFor('chat');
+    expect(a).toEqual({ t: 'chat', player: 1, text: '你好 盟友' });
+    expect(b).toEqual(a);
+    host.send({ t: 'chat', text: 'x'.repeat(500) });
+    const long = await guest.waitFor('chat', (m) => m.player === 0);
+    expect(long.text.length).toBe(120);
+  });
+});

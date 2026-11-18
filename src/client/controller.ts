@@ -1,5 +1,6 @@
 import { BALANCE } from '../sim/data';
 import { NATIONS } from '../net/protocol';
+import { cleanChat, MessageLog } from './log';
 import { applyCommand, validateCommand, type Command } from '../sim/commands';
 import { createGame, stepGame, TEST_MAP_SEED } from '../sim/game';
 import type { GameState, PlayerId } from '../sim/types';
@@ -39,6 +40,8 @@ export class GameController {
   selection: Selection = { villager: null, tile: null, group: [] };
   options: GameOptions;
   lastError: string | null = null;
+  /** Event history and chat (client-only, not part of the simulation). */
+  log = new MessageLog();
   /** UI hook (sound effects): called after every locally issued command. */
   onIssue: ((cmd: Command, error: string | null) => void) | null = null;
 
@@ -68,6 +71,7 @@ export class GameController {
     this.options = { ...this.options, ...options };
     this.state = this.makeGame();
     this.selection = { villager: null, tile: null, group: [] };
+    this.log = new MessageLog();
     this.pending = [];
     this.accumulator = 0;
     this.lastError = null;
@@ -101,6 +105,14 @@ export class GameController {
     this.onIssue?.(cmd, error);
     this.notify();
     return error;
+  }
+
+  /** Send a chat message. Single player: it only shows up locally. */
+  sendChat(text: string): void {
+    const clean = cleanChat(text);
+    if (!clean) return;
+    this.log.addChat(this.state.tick, this.localPlayer, clean);
+    this.notify();
   }
 
   setSpeed(speed: Speed) {
