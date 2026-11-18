@@ -8,7 +8,8 @@ import { runLoyalty } from './systems/loyalty';
 import { runResearch } from './systems/research';
 import { updateTerritory } from './systems/territory';
 import { updateVision } from './systems/vision';
-import { Knowledge, type GameState } from './types';
+import type { GameState } from './types';
+import { makePlayer } from './state';
 import { Rng } from './rng';
 import { makeRelations } from './systems/diplomacy';
 import { runDiplomacy } from './systems/diplomacy';
@@ -56,31 +57,14 @@ export function createGame(setup: GameSetup): GameState {
     width,
     height,
     tiles,
-    players: setup.players.map((p, id) => ({
-      id,
-      name: p.name,
-      color: p.color,
-      isAI: p.isAI,
-      startTile: -1,
-      stock: { ...BALANCE.startingStock },
-      knowledge: new Array(tiles.length).fill(Knowledge.Unknown),
-      visible: new Array(tiles.length).fill(0),
-      atWar: false,
-      management: {
-        popIntervalSeconds: BALANCE.population.defaultIntervalSeconds,
-        popEnabled: true,
-        foodProtection: true,
-      },
-      popProgress: 0,
-      researched: [],
-      policies: [],
-      currentResearch: null,
-      researchPoints: 0,
-      ai: p.isAI
-        ? { aggression: personality.next(), openness: personality.next(), expansion: personality.next() }
-        : null,
-      eliminated: false,
-    })),
+    players: setup.players.map((p, id) =>
+      makePlayer(
+        id,
+        p,
+        tiles.length,
+        p.isAI ? { aggression: personality.next(), openness: personality.next(), expansion: personality.next() } : null,
+      ),
+    ),
     villagers: [],
     buildings: [],
     nextEntityId: 1,

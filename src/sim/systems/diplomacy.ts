@@ -15,6 +15,17 @@ export function makeRelations(playerCount: number): Relation[] {
   return out;
 }
 
+/** A new nation joined mid-game: create its relations with everyone else. */
+export function addRelationsFor(state: GameState, id: PlayerId): void {
+  for (const p of state.players) {
+    if (p.id === id) continue;
+    const [a, b] = p.id < id ? [p.id, id] : [id, p.id];
+    if (!state.relations.some((r) => r.a === a && r.b === b)) {
+      state.relations.push({ a, b, contact: false, status: 'none', proposal: null, deadline: 0, cooldownUntil: 0, since: state.tick });
+    }
+  }
+}
+
 export function getRelation(state: GameState, x: PlayerId, y: PlayerId): Relation {
   const [a, b] = x < y ? [x, y] : [y, x];
   const r = state.relations.find((rel) => rel.a === a && rel.b === b);

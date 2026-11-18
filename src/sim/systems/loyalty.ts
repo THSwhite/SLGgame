@@ -41,11 +41,14 @@ export function runLoyalty(state: GameState): void {
   const lost: Villager[] = [];
   for (const v of state.villagers) {
     const mods = getModifiers(getPlayer(state, v.owner));
+    if (v.resentment > 0) v.resentment = Math.max(0, v.resentment - BALANCE.conquest.resentmentDecayPerSecond);
+    const cap = cfg.max - v.resentment;
     if (isSupervised(state, v) || (v.soldier && mods.soldierLoyaltyImmune > 0)) {
-      v.loyalty = Math.min(cfg.max, v.loyalty + cfg.recoverPerSecond);
-      continue;
+      v.loyalty = Math.min(cap, v.loyalty + cfg.recoverPerSecond);
+    } else {
+      v.loyalty = Math.max(0, v.loyalty - cfg.decayPerSecond * mods.loyaltyDecay);
     }
-    v.loyalty = Math.max(0, v.loyalty - cfg.decayPerSecond * mods.loyaltyDecay);
+    v.loyalty = Math.min(v.loyalty, cap);
     if (v.loyalty >= cfg.threshold) continue;
     const chance = ((cfg.threshold - v.loyalty) / cfg.threshold) * cfg.defectChancePerSecond;
     if (nextRandom(state) < chance) lost.push(v);

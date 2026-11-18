@@ -73,9 +73,11 @@ npm install        # 第一次執行前，安裝套件
 | `population` | 新村民消耗的糧食、生產間隔（預設、最小、最大秒數） | 25 糧；30 秒（10～120） |
 | `nonTerritoryBuildingMaxDistance` | 非國土建築最遠可以蓋在國土外幾格 | 2 |
 | `training` | 兵營訓練的秒數、糧食、最高等級 | 60 秒、20 糧、LV2 |
-| `loyalty` | 忠誠度：下降／恢復速度、叛離門檻與機率、策反距離 | 見檔案 |
+| `loyalty` | 忠誠度：下降／恢復速度、叛離門檻與機率、策反距離、忠誠度 0 時的工作效率（`minWorkEfficiency`） | 見檔案；效率最低 50% |
 | `diplomacy` | 提議的有效時間、領事館期限、冷卻時間、貿易收入、研究交流加成 | 60 秒、180 秒、300 秒…… |
-| `branchCity` | 分城：每幾格國土可以蓋 1 座（`territoryTilesPerCity`）、離首都超過地圖寬度的多少比例開始有獨立風險（`independenceDistanceShare`）、每分鐘的基本／額外獨立機率、獨立時帶走多大範圍內的村民 | 30 格、0.5、3%／+12% |
+| `branchCity` | 分城：每幾格國土可以蓋 1 座（`territoryTilesPerCity`）、離首都超過地圖寬度的多少比例開始有獨立風險（`independenceDistanceShare`）、每分鐘的基本／額外獨立機率、獨立時帶走多大範圍內的村民、新國家的初始資源、國家數量上限（`maxNations`，超過就不再建國，分城直接消失） | 30 格、0.5、3%／+12%、半徑 2、10 國 |
+| `conquest` | 攻佔主城／分城：區域範圍（國土半徑 + `regionExtraRadius`）、殺死居民／損壞建築（每點生命）／摧毀建築累積的破壞程度、怨恨上限、怨恨每秒消退量、攻下分城時至少拿走的資源比例、攻下非最後一座主城時拿走的資源比例 | 1、8、0.03、10、90、0.05、10%、50% |
+| `independentNations` | 分城獨立後成立的新國家的名字與顏色（依序使用） | 6 組 |
 | `ai.thinkEverySeconds` | AI 多久做一次決定 | 2 |
 | `combat` | 士兵／平民的攻擊力、各等級生命值、恢復速度、地形與駐守的防禦加成、掠奪比例、支援作戰的傷害倍率（`supportDamageMultiplier`）、佔領後建築剩下的生命比例（`captureHpShare`） | 支援 0.5、佔領 0.3，其他見檔案 |
 | `victory` | 領土勝利需要的比例、時間限制（分鐘）。覺得 AI 太快達成領土勝利，可以把 `territoryShare` 調高（例如 0.5） | 40%、60 分鐘 |

@@ -88,6 +88,9 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Combat only between nations with relation status `war`; `attack` command refuses tiles of nations not at war.
 - Support: a stationary soldier with no enemy on its tile hits an enemy on an adjacent tile where its nation is fighting (own unit/building present), at `combat.supportDamageMultiplier`; supporters are not hit back.
 - Capture: a complete building with `capturable` that drops to 0 HP changes owner (HP → `captureHpShare`); others are destroyed and plundered. Jobs check `b.owner === v.owner` so former owners stop working there.
+- Conquest (`systems/conquest.ts`): capturing a camp/city calls `annex`: region (territory radius + `regionExtraRadius`) buildings + villagers change owner, a share of stock moves; the loser's *last* camp annexes the whole nation. War damage in a seat's region accumulates in `building.devastation` (kills, building HP damage, destruction) and becomes the conquered villagers' `resentment`.
+- Villager `resentment` caps loyalty (100 − resentment) and decays slowly; loyalty scales `workEfficiency` (down to `loyalty.minWorkEfficiency`); loyalty below threshold may defect even inside territory.
+- Independence (`declareIndependence` in `systems/cities.ts`) creates a **new AI player mid-game** (`makePlayer` in `state.ts`, `addRelationsFor` in diplomacy): the city becomes its camp. `state.players` can therefore grow during a game — never assume a fixed player count (UI, net, hash all iterate `state.players`).
 - Elimination: no villagers or no complete territory building. Victory: conquest / territory share / time limit (score `nationScore`).
 
 ## How to add things
@@ -108,7 +111,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Single-player `GameController` applies queued commands at the next tick; commands validated against the *current* state (a command depending on a not-yet-applied one, e.g. setSoldier then garrison in the same 100 ms, is rejected — scripts must wait a tick).
 
 ## Testing
-- `tests/sim.test.ts` (M1), `m2`…`m5` (feature rules), `city.test.ts` (branch cities), `wood.test.ts` (wood availability across seeds, lumber camp), `net.test.ts` (real server on port 0 + two headless peers; checks per-frame hash equality and AI takeover).
+- `tests/sim.test.ts` (M1), `m2`…`m5` (feature rules), `city.test.ts` (branch cities, independence → new nation), `conquest.test.ts` (annexation, devastation, resentment), `wood.test.ts` (wood availability across seeds, lumber camp), `net.test.ts` (real server on port 0 + two headless peers; checks per-frame hash equality and AI takeover).
 - Use helpers in `tests/helpers.ts`. Tests that mutate `BALANCE` must restore it (see `m5.test.ts` afterEach).
 - AI balance check (not committed): write a temporary test that runs 3 AIs (+ an idle human) for 60 min on a few seeds and logs land share / pop / soldiers / towers / houses / relations every 15 min. Last tuning: top AI ≈ 20–37% land at 30 min; territory victory around 32–45 min when the human does nothing. Delete the test afterwards.
 

@@ -1,6 +1,9 @@
 import { BALANCE, BUILDINGS } from '../data';
 import { hexDistance, tilesInRadius } from '../hex';
 import { nextRandom } from '../rng';
+import { makePlayer } from '../state';
+import { addRelationsFor, getRelation } from './diplomacy';
+import { recomputeTerritory } from './territory';
 import { getPlayer, logEvent } from '../state';
 import type { Building, GameState, Player } from '../types';
 import { isComplete } from './territory';
@@ -54,12 +57,62 @@ export function runCities(state: GameState): void {
   for (const city of cities) {
     const chance = independenceChance(state, city);
     if (chance <= 0 || nextRandom(state) >= chance) continue;
-    const owner = getPlayer(state, city.owner);
-    const area = new Set(tilesInRadius(state, city.tile, BALANCE.branchCity.defectRadius));
-    const leaving = state.villagers.filter((v) => v.owner === city.owner && area.has(v.tile));
-    state.villagers = state.villagers.filter((v) => !leaving.includes(v));
+    declareIndependence(state, city);
+  }
+}
+
+/**
+ * A far-away branch city breaks away and becomes a new AI nation: the city
+ * becomes its capital and the villagers around it its people.
+ */
+export function declareIndependence(state: GameState, city: Building): void {
+  const parent = getPlayer(state, city.owner);
+  const area = new Set(tilesInRadius(state, city.tile, BALANCE.branchCity.defectRadius));
+  const people = state.villagers.filter((v) => v.owner === parent.id && area.has(v.tile));
+
+  if (state.players.length >= BALANCE.branchCity.maxNations) {
+    // No room for another nation: the city and its people are simply lost.
+    state.villagers = state.villagers.filter((v) => !people.includes(v));
     state.buildings = state.buildings.filter((b) => b !== city);
     state.mapVersion++;
-    logEvent(state, owner.id, `距離首都太遠的分城宣布獨立，帶走了 ${leaving.length} 位村民！`);
+    logEvent(state, parent.id, `距離首都太遠的分城宣布獨立，帶走了 ${people.length} 位村民！`);
+    return;
+  }
+
+  const id = state.players.length;
+  const pool = BALANCE.independentNations;
+  const base = pool[(id - 1) % pool.length] ?? { name: '自由城邦', color: '#9e9e9e' };
+  const round = Math.floor((id - 1) / pool.length);
+  const name = round > 0 ? `${base.name}（${round + 1}）` : base.name;
+  const nation = makePlayer(id, { name, color: base.color, isAI: true }, state.tiles.length, {
+    aggression: nextRandom(state),
+    openness: nextRandom(state),
+    expansion: nextRandom(state),
+  });
+  nation.startTile = city.tile;
+  nation.stock = { ...BALANCE.branchCity.independenceStartingStock };
+  nation.knowledge = [...parent.knowledge];
+  nation.researched = [...parent.researched];
+  state.players.push(nation);
+  addRelationsFor(state, id);
+  getRelation(state, parent.id, id).contact = true;
+
+  city.type = 'camp';
+  city.owner = id;
+  city.devastation = 0;
+  for (const v of people) {
+    v.owner = id;
+    v.soldier = false;
+    v.order = { kind: 'idle' };
+    v.path = [];
+    v.moveProgress = 0;
+    v.loyalty = BALANCE.loyalty.max;
+    v.resentment = 0;
+  }
+  recomputeTerritory(state);
+  for (const p of state.players) {
+    logEvent(state, p.id, p.id === parent.id
+      ? `距離首都太遠的分城宣布獨立，成立了「${name}」，帶走了 ${people.length} 位村民！`
+      : `${parent.name} 的分城宣布獨立，成立了新國家「${name}」`);
   }
 }

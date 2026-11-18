@@ -372,6 +372,7 @@ function SelectedVillager({ controller, state }: { controller: GameController; s
     <div className="selected-villager">
       <div>
         村民 #{v.id}：LV{v.level}　{v.soldier ? '士兵' : '平民'}　忠誠度 {Math.floor(v.loyalty)}
+        {v.resentment >= 1 && <span className="neg">　怨恨 {Math.ceil(v.resentment)}（忠誠上限 {Math.floor(100 - v.resentment)}）</span>}
       </div>
       <div className="actions">
         {v.soldier ? (
@@ -494,6 +495,9 @@ function BuildingInfo({ controller, state, tile }: { controller: GameController;
       ) : (
         <>
           {def.popCap > 0 && <div>人口上限 +{def.popCap}</div>}
+          {(b.type === 'city' || b.type === 'camp') && (b.devastation ?? 0) >= 1 && (
+            <div className="neg">戰火破壞程度 {Math.round(b.devastation ?? 0)}：被攻佔時，當地居民會帶著同等的怨恨</div>
+          )}
           {b.type === 'city' && (
             <div className={independenceChance(state, b) > 0 ? 'neg' : 'hint'}>
               距離首都 {Number.isFinite(distanceToCapital(state, b)) ? distanceToCapital(state, b) : '—'} 格

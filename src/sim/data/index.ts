@@ -96,6 +96,25 @@ export interface Balance {
     independenceExtraChancePerMinute: number;
     /** Villagers within this radius leave together with the city. */
     defectRadius: number;
+    /** Stock a newly independent nation starts with. */
+    independenceStartingStock: Record<ResourceType, number>;
+    /** No new nations once this many exist (the city is simply lost instead). */
+    maxNations: number;
+  };
+  /** Names/colors for nations founded by independent cities. */
+  independentNations: Array<{ name: string; color: string }>;
+  conquest: {
+    /** A city's region = its territory radius + this. */
+    regionExtraRadius: number;
+    devastationPerKill: number;
+    devastationPerBuildingHp: number;
+    devastationPerDestroyedBuilding: number;
+    maxResentment: number;
+    resentmentDecayPerSecond: number;
+    /** Minimum share of the loser's stock taken with a branch city. */
+    branchStockShareMin: number;
+    /** Share of the loser's stock taken with a capital that is not their last. */
+    capitalStockShare: number;
   };
   loyalty: {
     max: number;
@@ -106,6 +125,8 @@ export interface Balance {
     defectChancePerSecond: number;
     subvertRange: number;
     afterDefection: number;
+    /** Work efficiency at loyalty 0 (scales linearly up to 1 at full loyalty). */
+    minWorkEfficiency: number;
   };
 }
 

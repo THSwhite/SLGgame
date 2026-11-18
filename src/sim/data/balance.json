@@ -57,7 +57,8 @@
     "threshold": 30,
     "defectChancePerSecond": 0.02,
     "subvertRange": 5,
-    "afterDefection": 60
+    "afterDefection": 60,
+    "minWorkEfficiency": 0.5
   },
   "diplomacy": {
     "proposalSeconds": 60,
@@ -115,6 +116,49 @@
     "independenceDistanceShare": 0.5,
     "independenceBaseChancePerMinute": 0.03,
     "independenceExtraChancePerMinute": 0.12,
-    "defectRadius": 2
-  }
+    "defectRadius": 2,
+    "independenceStartingStock": {
+      "food": 100,
+      "wood": 80,
+      "stone": 20,
+      "ore": 0
+    },
+    "maxNations": 10
+  },
+  "conquest": {
+    "regionExtraRadius": 1,
+    "devastationPerKill": 8,
+    "devastationPerBuildingHp": 0.03,
+    "devastationPerDestroyedBuilding": 10,
+    "maxResentment": 90,
+    "resentmentDecayPerSecond": 0.05,
+    "branchStockShareMin": 0.1,
+    "capitalStockShare": 0.5
+  },
+  "independentNations": [
+    {
+      "name": "北境自由城",
+      "color": "#8e24aa"
+    },
+    {
+      "name": "河谷公國",
+      "color": "#00acc1"
+    },
+    {
+      "name": "山嶺侯國",
+      "color": "#f4511e"
+    },
+    {
+      "name": "海灣共和國",
+      "color": "#3949ab"
+    },
+    {
+      "name": "森林部族",
+      "color": "#7cb342"
+    },
+    {
+      "name": "沙原酋邦",
+      "color": "#c0ca33"
+    }
+  ]
 }

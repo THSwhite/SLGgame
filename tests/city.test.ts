@@ -83,13 +83,13 @@ describe('branch city', () => {
     const around = tilesInRadius(s, tile, 1).filter((t) => t !== tile);
     for (const t of around.slice(0, 2)) newVillager(s, 0, t);
     const capBefore = populationCap(s, s.players[0]);
-    run(s, BUILDINGS.city.buildSeconds + 5);
+    run(s, BUILDINGS.city.buildSeconds * 2);
     expect(city.progress).toBe(1);
     expect(s.tiles[tile].owner).toBe(0);
     expect(populationCap(s, s.players[0])).toBe(capBefore + BUILDINGS.city.popCap);
   });
 
-  it('a city very far from the capital may declare independence; a near one never does', () => {
+  it('a city very far from the capital may break away as a new AI nation; a near one never does', () => {
     const s = startAt();
     rich(s);
     const start = s.players[0].startTile;
@@ -101,10 +101,22 @@ describe('branch city', () => {
     expect(independenceChance(s, s.buildings.find((b) => b.id === near)!)).toBe(0);
     expect(independenceChance(s, s.buildings.find((b) => b.id === far)!)).toBeGreaterThan(0);
     const settler = newVillager(s, 0, farTile);
-    for (let m = 0; m < 120 && s.buildings.some((b) => b.id === far); m++) run(s, 60);
-    expect(s.buildings.some((b) => b.id === far)).toBe(false);
-    expect(s.buildings.some((b) => b.id === near)).toBe(true);
-    expect(s.villagers.includes(settler)).toBe(false);
-    expect(s.events.some((e) => e.message.includes('宣布獨立'))).toBe(true);
+    const farCity = s.buildings.find((b) => b.id === far)!;
+    for (let m = 0; m < 120 && farCity.owner === 0; m++) run(s, 60);
+    // A new nation was born around the old city.
+    expect(s.players).toHaveLength(2);
+    const nation = s.players[1];
+    expect(nation.isAI).toBe(true);
+    expect(nation.ai).not.toBeNull();
+    expect(farCity.owner).toBe(1);
+    expect(farCity.type).toBe('camp');
+    expect(settler.owner).toBe(1);
+    expect(s.tiles[farTile].owner).toBe(1);
+    expect(s.relations.some((r) => r.a === 0 && r.b === 1 && r.contact)).toBe(true);
+    expect(s.buildings.find((b) => b.id === near)!.owner).toBe(0);
+    expect(s.events.some((e) => e.message.includes('成立了'))).toBe(true);
+    // ...and it runs as a normal nation afterwards.
+    run(s, 120);
+    expect(nation.eliminated).toBe(false);
   });
 });

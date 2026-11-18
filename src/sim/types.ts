@@ -50,6 +50,8 @@ export interface Villager {
   soldier: boolean;
   /** 0..100. Falls while outside territory and tower coverage. */
   loyalty: number;
+  /** 0..100. Grudge from being conquered; caps loyalty at 100 - resentment and fades slowly. */
+  resentment: number;
   hp: number;
 }
 
@@ -63,6 +65,8 @@ export interface Building {
   /** For consulates: the nation hosting it. */
   host?: PlayerId;
   hp: number;
+  /** For capitals/branch cities: war damage suffered in their region (drives resentment on conquest). */
+  devastation?: number;
 }
 
 /** Per-player settings from the management menu. */

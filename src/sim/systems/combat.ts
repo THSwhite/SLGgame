@@ -4,6 +4,7 @@ import { neighbors } from '../hex';
 import { getPlayer, logEvent, maxVillagerHp } from '../state';
 import type { Building, GameState, PlayerId, Villager } from '../types';
 import { atWarWith } from './diplomacy';
+import { addDevastation, annex, isSeat } from './conquest';
 
 const ROUGH = new Set(['forest', 'mud']);
 
@@ -97,11 +98,15 @@ export function runCombat(state: GameState): void {
   }
   state.combatTiles = [...fighting].sort((a, b) => a - b);
 
+  const C = BALANCE.conquest;
+  for (const [b, d] of bDamage) addDevastation(state, b.owner, b.tile, Math.min(d.amount, Math.max(0, b.hp)) * C.devastationPerBuildingHp);
+
   const dead = new Set<Villager>();
   for (const [v, d] of vDamage) {
     v.hp -= d.amount;
     if (v.hp <= 0) {
       dead.add(v);
+      addDevastation(state, v.owner, v.tile, C.devastationPerKill);
       const killer = getPlayer(state, d.by).name;
       logEvent(state, v.owner, `${v.soldier ? '士兵' : '村民'} #${v.id} 被 ${killer} 殺死了`);
       logEvent(state, d.by, `擊敗了 ${getPlayer(state, v.owner).name} 的${v.soldier ? '士兵' : '村民'} #${v.id}`);
@@ -118,14 +123,20 @@ export function runCombat(state: GameState): void {
     const loser = getPlayer(state, b.owner).name;
     const winner = getPlayer(state, d.by).name;
     if (def.capturable && b.progress >= 1) {
+      b.hp = def.hp * BALANCE.combat.captureHpShare;
+      delete b.host;
+      captured = true;
+      if (isSeat(b)) {
+        // Taking a capital or branch city brings its whole region (or nation) along.
+        annex(state, b, b.owner, d.by);
+        continue;
+      }
       // Occupation: the building (and the territory it gives) changes hands.
       logEvent(state, b.owner, `我們的${def.name}被 ${winner} 佔領了！`);
       logEvent(state, d.by, `佔領了 ${loser} 的${def.name}`);
       b.owner = d.by;
-      b.hp = def.hp * BALANCE.combat.captureHpShare;
-      delete b.host;
-      captured = true;
     } else {
+      addDevastation(state, b.owner, b.tile, C.devastationPerDestroyedBuilding);
       destroyed.add(b);
       const loot = plunder(state, b, d.by);
       logEvent(state, b.owner, `我們的${def.name}被 ${winner} 摧毀了！`);

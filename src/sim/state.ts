@@ -1,5 +1,5 @@
 import { BALANCE } from './data';
-import type { GameState, PlayerId, TileIndex, Villager } from './types';
+import { Knowledge, type AIPersonality, type GameState, type Player, type PlayerId, type TileIndex, type Villager } from './types';
 
 export const MAX_EVENTS = 100;
 
@@ -30,6 +30,7 @@ export function newVillager(state: GameState, owner: PlayerId, tile: TileIndex):
     order: { kind: 'idle' },
     soldier: false,
     loyalty: BALANCE.loyalty.start,
+    resentment: 0,
     hp: BALANCE.combat.hp['1'],
   };
   state.villagers.push(v);
@@ -38,4 +39,35 @@ export function newVillager(state: GameState, owner: PlayerId, tile: TileIndex):
 
 export function maxVillagerHp(level: number): number {
   return BALANCE.combat.hp[String(level)] ?? BALANCE.combat.hp['1'];
+}
+
+export function makePlayer(
+  id: PlayerId,
+  setup: { name: string; color: string; isAI: boolean },
+  tileCount: number,
+  ai: AIPersonality | null,
+): Player {
+  return {
+    id,
+    name: setup.name,
+    color: setup.color,
+    isAI: setup.isAI,
+    startTile: -1,
+    stock: { ...BALANCE.startingStock },
+    knowledge: new Array(tileCount).fill(Knowledge.Unknown),
+    visible: new Array(tileCount).fill(0),
+    atWar: false,
+    management: {
+      popIntervalSeconds: BALANCE.population.defaultIntervalSeconds,
+      popEnabled: true,
+      foodProtection: true,
+    },
+    popProgress: 0,
+    researched: [],
+    policies: [],
+    currentResearch: null,
+    researchPoints: 0,
+    ai,
+    eliminated: false,
+  };
 }

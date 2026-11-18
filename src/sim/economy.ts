@@ -18,7 +18,10 @@ export function isStarving(player: Player): boolean {
 export function workEfficiency(state: GameState, v: Villager): number {
   const level = BALANCE.villagerLevels[String(v.level)];
   const starving = isStarving(getPlayer(state, v.owner));
-  return level.workEfficiency * (starving ? BALANCE.starvingWorkEfficiency : 1);
+  // Disloyal (e.g. resentful conquered) villagers work half-heartedly.
+  const min = BALANCE.loyalty.minWorkEfficiency;
+  const morale = min + (1 - min) * Math.max(0, Math.min(1, v.loyalty / BALANCE.loyalty.max));
+  return level.workEfficiency * (starving ? BALANCE.starvingWorkEfficiency : 1) * morale;
 }
 
 export function hasFreshWaterNearby(state: GameState, tile: number): boolean {
