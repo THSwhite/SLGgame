@@ -8,6 +8,7 @@ import { populationCap } from '../systems/population';
 import { consulateOf, other, relationsOf } from '../systems/diplomacy';
 import { researchBlocked } from '../systems/research';
 import { garrisonOf, isComplete } from '../systems/territory';
+import { cityCount, cityLimit, independenceThreshold } from '../systems/cities';
 import { Knowledge, type Building, type GameState, type Player, type Villager } from '../types';
 
 /**
@@ -344,11 +345,12 @@ class Brain {
     const pop = this.villagers.length;
     const cap = populationCap(state, me);
 
-    // 1. Help finish construction sites.
+    // 1. Help finish construction sites (branch cities need a crowd on site).
     const site = this.buildings.find(
       (b) =>
         !isComplete(b) &&
-        state.villagers.filter((x) => x.order.kind === 'construct' && x.order.building === b.id).length < 2,
+        state.villagers.filter((x) => x.order.kind === 'construct' && x.order.building === b.id).length <
+          Math.max(2, BUILDINGS[b.type].minVillagersNearby ?? 0),
     );
     if (site && this.issue({ type: 'work', player: me.id, villager: v.id, building: site.id })) return true;
 
@@ -411,6 +413,20 @@ class Brain {
         }
       }
       if (this.gather(v, 'stone')) return true;
+    }
+
+    // 6b. Branch city on good unclaimed land, not too far from the capital.
+    const cityPace = Math.floor(state.tick / secondsToTicks(600)); // at most ~1 more city per 10 minutes
+    if (!this.hasSite('city') && cityCount(state, me) < Math.min(cityLimit(state, me), cityPace) && pop >= 15) {
+      const limit = independenceThreshold(state) - 2;
+      const score = (t: number) => {
+        const d = hexDistance(state, t, me.startTile);
+        if (d < 6 || d > limit) return -1000;
+        const farm = tilesInRadius(state, t, 2).filter((x) => TERRAIN[state.tiles[x].terrain].farmable).length;
+        return this.newLand(t, 2) * 2 + farm - d * 0.3;
+      };
+      const candidates = state.tiles.map((_, i) => i).filter((i) => me.knowledge[i] === Knowledge.Explored && score(i) > 0);
+      if (candidates.length && this.place(v, 'city', score, candidates)) return true;
     }
 
     // 7. Watchtowers push the border furthest (radius 3) once soldiers can man them.

@@ -14,6 +14,7 @@ import {
 } from '../sim/economy';
 import { garrisonOf } from '../sim/systems/territory';
 import { enemiesOnTile } from '../sim/systems/combat';
+import { cityCount, cityLimit, distanceToCapital, independenceChance, independenceThreshold, lacksWorkforce, villagersNearby } from '../sim/systems/cities';
 import { getRelation } from '../sim/systems/diplomacy';
 import { EndOverlay } from './EndOverlay';
 import { useGameAudio, SoundButton } from './Sound';
@@ -481,10 +482,26 @@ function BuildingInfo({ controller, state, tile }: { controller: GameController;
         {def.name} <small>{mine ? '' : owner.name}</small>
       </div>
       {b.progress < 1 ? (
-        <div>建造中 {Math.floor(b.progress * 100)}%</div>
+        <>
+          <div>建造中 {Math.floor(b.progress * 100)}%</div>
+          {def.minVillagersNearby !== undefined && (
+            <div className={lacksWorkforce(state, b) ? 'neg' : 'pos'}>
+              周圍村民 {villagersNearby(state, b)}/{def.minVillagersNearby}
+              {lacksWorkforce(state, b) ? '：人手不足，工程暫停' : '：工程進行中'}
+            </div>
+          )}
+        </>
       ) : (
         <>
           {def.popCap > 0 && <div>人口上限 +{def.popCap}</div>}
+          {b.type === 'city' && (
+            <div className={independenceChance(state, b) > 0 ? 'neg' : 'hint'}>
+              距離首都 {Number.isFinite(distanceToCapital(state, b)) ? distanceToCapital(state, b) : '—'} 格
+              {independenceChance(state, b) > 0
+                ? `：太遠了！每分鐘有 ${Math.round(independenceChance(state, b) * 100)}% 機率獨立`
+                : `（超過 ${independenceThreshold(state)} 格可能獨立）`}
+            </div>
+          )}
           {def.territoryRadius > 0 && <div>國土半徑 {def.territoryRadius}</div>}
           {def.workerSlots > 0 && (
             <div>
@@ -644,7 +661,9 @@ function TilePanel({ controller, state }: { controller: GameController; state: G
       )}
       {villager && def.land && explored && !hasBuilding && (
         <div className="build-menu">
-          <div className="hint">建造：</div>
+          <div className="hint">
+            建造：<span>（分城 {cityCount(state, me)}/{cityLimit(state, me)}，每 {BALANCE.branchCity.territoryTilesPerCity} 格國土 1 座）</span>
+          </div>
           {BUILDING_TYPES.filter((type) => BUILDINGS[type].buildable).map((type) => {
             const cmd = { type: 'placeBuilding', player: me.id, villager: villager.id, tile, building: type } as const;
             const err = validateCommand(state, cmd);

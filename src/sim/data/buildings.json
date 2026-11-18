@@ -109,6 +109,27 @@
     "hp": 200,
     "capturable": true
   },
+  "city": {
+    "name": "分城",
+    "buildable": true,
+    "cost": {
+      "wood": 150,
+      "stone": 50
+    },
+    "buildSeconds": 60,
+    "placement": "land",
+    "territory": "free",
+    "territoryRadius": 2,
+    "visionRadius": 3,
+    "popCap": 5,
+    "workerSlots": 0,
+    "production": {},
+    "trainingSlots": 0,
+    "garrisonSlots": 0,
+    "hp": 400,
+    "capturable": true,
+    "minVillagersNearby": 3
+  },
   "barracks": {
     "name": "兵營",
     "buildable": true,

@@ -109,5 +109,12 @@
       "height": 40,
       "name": "大"
     }
+  },
+  "branchCity": {
+    "territoryTilesPerCity": 30,
+    "independenceDistanceShare": 0.5,
+    "independenceBaseChancePerMinute": 0.03,
+    "independenceExtraChancePerMinute": 0.12,
+    "defectRadius": 2
   }
 }

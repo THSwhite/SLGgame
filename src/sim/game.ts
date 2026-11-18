@@ -15,6 +15,7 @@ import { runDiplomacy } from './systems/diplomacy';
 import { runAI } from './ai/ai';
 import { runCombat } from './systems/combat';
 import { runVictory } from './systems/victory';
+import { runCities } from './systems/cities';
 
 export interface PlayerSetup {
   name: string;
@@ -113,6 +114,7 @@ export function stepGame(state: GameState, commands: Command[] = []): Array<stri
   runResearch(state);
   runLoyalty(state);
   runDiplomacy(state);
+  runCities(state);
   runAI(state);
   runVictory(state);
   updateTerritory(state);

@@ -1,4 +1,5 @@
 import { BALANCE, BUILDINGS, RESOURCE_NAMES, TERRAIN } from '../sim/data';
+import { lacksWorkforce } from '../sim/systems/cities';
 import { colOf, rowOf } from '../sim/hex';
 import { Knowledge, type GameState, type Villager } from '../sim/types';
 
@@ -19,7 +20,11 @@ export function villagerStatus(state: GameState, v: Villager): string {
       const id = o.building;
       const b = state.buildings.find((x) => x.id === id);
       const name = b ? BUILDINGS[b.type].name : '建築';
-      if (o.kind === 'construct') return travelling ? `前往建造${name}` : `建造${name} ${Math.floor((b?.progress ?? 0) * 100)}%`;
+      if (o.kind === 'construct') {
+        if (travelling) return `前往建造${name}`;
+        if (b && lacksWorkforce(state, b)) return `等待人手（${name}需要周圍 ${BUILDINGS[b.type].minVillagersNearby} 位村民）`;
+        return `建造${name} ${Math.floor((b?.progress ?? 0) * 100)}%`;
+      }
       return travelling ? `前往${name}` : `在${name}工作`;
     }
     case 'train':

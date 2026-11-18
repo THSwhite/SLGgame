@@ -86,6 +86,17 @@ export interface Balance {
   };
   victory: { territoryShare: number; timeLimitMinutes: number };
   mapSizes: Record<string, { width: number; height: number; name: string }>;
+  branchCity: {
+    /** One branch city allowed per this many territory tiles. */
+    territoryTilesPerCity: number;
+    /** Independence risk beyond this share of the map width from the nearest capital. */
+    independenceDistanceShare: number;
+    independenceBaseChancePerMinute: number;
+    /** Added per full threshold-distance beyond the threshold. */
+    independenceExtraChancePerMinute: number;
+    /** Villagers within this radius leave together with the city. */
+    defectRadius: number;
+  };
   loyalty: {
     max: number;
     start: number;
@@ -112,9 +123,10 @@ export interface BuildingDef {
   /**
    * Territory rule: 'connected' = territory building whose area must connect
    * to existing territory; 'near' = may stand up to N tiles outside territory;
-   * 'foreign' = must stand in the territory of a nation we have relations with.
+   * 'foreign' = must stand in the territory of a nation we have relations with;
+   * 'free' = anywhere not owned by another nation, no connection needed (branch city).
    */
-  territory: 'none' | 'connected' | 'near' | 'foreign';
+  territory: 'none' | 'connected' | 'near' | 'foreign' | 'free';
   territoryRadius: number;
   visionRadius: number;
   popCap: number;
@@ -142,6 +154,8 @@ export interface BuildingDef {
   hp: number;
   /** Captured (instead of destroyed) when its HP reaches 0 in war. */
   capturable?: boolean;
+  /** Construction only progresses with at least this many own villagers on the tile or its 6 neighbours. */
+  minVillagersNearby?: number;
 }
 
 export const BUILDINGS = buildingsJson as Record<BuildingType, BuildingDef>;

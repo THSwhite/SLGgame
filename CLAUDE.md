@@ -71,7 +71,7 @@ docs/GDD.md              game design doc (zh-Hant) — update it when rules chan
 3. `runJobs` (movement + orders: explore/gather/construct/work/train/garrison/attack)
 4. `runCombat` (same-tile, at-war only; damage accumulated then applied simultaneously)
 5. `updateTerritory` (recomputes only if territory-building signature changed)
-6. `runFood` → `runPopulation` → `runResearch` → `runLoyalty` (1/s) → `runDiplomacy` (1/s) → `runAI` → `runVictory` (1/s)
+6. `runFood` → `runPopulation` → `runResearch` → `runLoyalty` (1/s) → `runDiplomacy` (1/s) → `runCities` (1/min) → `runAI` → `runVictory` (1/s)
 7. `updateTerritory` again, `updateVision`
 
 Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks starts when every human has a start (`applyCommand` chooseStart / playerLeft).
@@ -79,7 +79,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 ## Key game rules encoded in code (see GDD for full list)
 - Knowledge per player: `knowledge[i]` 0 Unknown (land/water only) / 1 Explored; `visible[i]` derived each tick. Territory is always visible.
 - Territory = land tiles within `territoryRadius` of *active* territory buildings; each building first holds its own tile, then first-come by building id. Territory signature includes owner (captures trigger a recompute). Watchtowers are active only while garrisoned (`isActive`).
-- Placement rules: `validatePlacement` (territory: connected / near / foreign). `connectsToTerritory` enforces contiguous territory.
+- Placement rules: `validatePlacement` (territory: connected / near / foreign / free). Branch city (`city`, territory 'free'): count ≤ owned tiles / `branchCity.territoryTilesPerCity`; construction gated by `minVillagersNearby` (`systems/cities.ts` `lacksWorkforce`); `runCities` (1/min) may make cities beyond `independenceDistanceShare` × map width from the nearest camp break away (removed with nearby villagers). `connectsToTerritory` enforces contiguous territory.
 - Population grows only if `populationBlocked` is null (cap from camp+houses; food protection: income ≥ consumption + newcomer).
 - Soldiers: level ≥ 2, cannot gather/work/build/train. Training is uninterruptible once paid.
 - Loyalty decays when unsupervised; defection = subverted by nearest foreign territory within range, else leaves.
@@ -108,7 +108,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Single-player `GameController` applies queued commands at the next tick; commands validated against the *current* state (a command depending on a not-yet-applied one, e.g. setSoldier then garrison in the same 100 ms, is rejected — scripts must wait a tick).
 
 ## Testing
-- `tests/sim.test.ts` (M1), `m2`…`m5` (feature rules), `wood.test.ts` (wood availability across seeds, lumber camp), `net.test.ts` (real server on port 0 + two headless peers; checks per-frame hash equality and AI takeover).
+- `tests/sim.test.ts` (M1), `m2`…`m5` (feature rules), `city.test.ts` (branch cities), `wood.test.ts` (wood availability across seeds, lumber camp), `net.test.ts` (real server on port 0 + two headless peers; checks per-frame hash equality and AI takeover).
 - Use helpers in `tests/helpers.ts`. Tests that mutate `BALANCE` must restore it (see `m5.test.ts` afterEach).
 - AI balance check (not committed): write a temporary test that runs 3 AIs (+ an idle human) for 60 min on a few seeds and logs land share / pop / soldiers / towers / houses / relations every 15 min. Last tuning: top AI ≈ 20–37% land at 30 min; territory victory around 32–45 min when the human does nothing. Delete the test afterwards.
 

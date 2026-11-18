@@ -5,6 +5,7 @@ import { findPath } from './pathfinding';
 import { getPlayer, logEvent, newVillager } from './state';
 import { connectsToTerritory, distanceToTerritory, isComplete, recomputeTerritory } from './systems/territory';
 import { researchBlocked } from './systems/research';
+import { cityCount, cityLimit } from './systems/cities';
 import { breakRelations, consulateOf, getRelation, setStatus } from './systems/diplomacy';
 import { chooseAIStarts } from './ai/start';
 import { updateVision } from './systems/vision';
@@ -86,6 +87,10 @@ export function validatePlacement(state: GameState, player: Player, tile: TileIn
   const maxOut = def.maxOutsideDistance ?? BALANCE.nonTerritoryBuildingMaxDistance;
   if (def.territory === 'near' && distanceToTerritory(state, player.id, tile) > maxOut) {
     return maxOut === 0 ? '只能蓋在國土內' : `只能蓋在國土內或國土外 ${maxOut} 格內`;
+  }
+  if (def.territory === 'free' && type === 'city' && cityCount(state, player) >= cityLimit(state, player)) {
+    const per = BALANCE.branchCity.territoryTilesPerCity;
+    return `分城數量已達上限（每 ${per} 格國土 1 座，目前可蓋 ${cityLimit(state, player)} 座）`;
   }
   if (!canAfford(player, def.cost)) return `資源不足（需要 ${costText(def.cost)}）`;
   return null;

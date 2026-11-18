@@ -75,6 +75,7 @@ npm install        # 第一次執行前，安裝套件
 | `training` | 兵營訓練的秒數、糧食、最高等級 | 60 秒、20 糧、LV2 |
 | `loyalty` | 忠誠度：下降／恢復速度、叛離門檻與機率、策反距離 | 見檔案 |
 | `diplomacy` | 提議的有效時間、領事館期限、冷卻時間、貿易收入、研究交流加成 | 60 秒、180 秒、300 秒…… |
+| `branchCity` | 分城：每幾格國土可以蓋 1 座（`territoryTilesPerCity`）、離首都超過地圖寬度的多少比例開始有獨立風險（`independenceDistanceShare`）、每分鐘的基本／額外獨立機率、獨立時帶走多大範圍內的村民 | 30 格、0.5、3%／+12% |
 | `ai.thinkEverySeconds` | AI 多久做一次決定 | 2 |
 | `combat` | 士兵／平民的攻擊力、各等級生命值、恢復速度、地形與駐守的防禦加成、掠奪比例、支援作戰的傷害倍率（`supportDamageMultiplier`）、佔領後建築剩下的生命比例（`captureHpShare`） | 支援 0.5、佔領 0.3，其他見檔案 |
 | `victory` | 領土勝利需要的比例、時間限制（分鐘）。覺得 AI 太快達成領土勝利，可以把 `territoryShare` 調高（例如 0.5） | 40%、60 分鐘 |
@@ -91,7 +92,7 @@ npm install        # 第一次執行前，安裝套件
 | `buildSeconds` | 建造時間（1 位村民、效率 1 的情況） |
 | `placement` | `"land"` 任何陸地 ／ `"farmable"` 只能蓋在可耕作地 |
 | `forbiddenTerrain` | 不能蓋在哪些地形上，例如伐木場的 `["stone"]` |
-| `territory` | `"connected"` 國土建築，範圍必須和現有國土相連 ／ `"near"` 國土內或國土外幾格內 ／ `"foreign"` 蓋在建交對象的國土內（領事館）／ `"none"` |
+| `territory` | `"connected"` 國土建築，範圍必須和現有國土相連 ／ `"near"` 國土內或國土外幾格內 ／ `"foreign"` 蓋在建交對象的國土內（領事館）／ `"free"` 任何不屬於別國的已探索土地，不需要相連（分城）／ `"none"` |
 | `maxOutsideDistance` | 只對 `"near"` 有效，覆蓋預設的「國土外幾格」 |
 | `territoryRadius` | 提供的國土半徑（0 = 不提供） |
 | `visionRadius` | 視野半徑 |
@@ -106,6 +107,7 @@ npm install        # 第一次執行前，安裝套件
 | `forestAdjacencyBonus` | 周圍每一格森林增加的產量（伐木場 0.1 = 每格 +10%） |
 | `rateModifier` | 由哪個科技／國策效果來加成產量，例如 `"farmRate"`、`"mineRate"`、`"lumberRate"` |
 | `hp` | 生命值 |
+| `minVillagersNearby` | 建造時，建築所在格和相鄰 6 格內至少要有幾位自己的村民，工程才會推進（分城 3） |
 | `capturable` | 戰爭中被打到 0 血時是「佔領」（`true`，建築變成攻擊方的）還是「摧毀」（`false`，例如領事館） |
 
 > **新增一種建築**：只改 JSON 不夠。還需要在 `src/client/renderer.ts` 的 `drawBuilding` 加上它的圖案；如果它有特殊效果，也要寫程式。可以直接請 Claude Code 幫忙。

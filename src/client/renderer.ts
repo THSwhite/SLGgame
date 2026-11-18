@@ -299,6 +299,15 @@ export class MapRenderer {
         g.rect(cx - 9, cy - 4, 18, 12).fill({ color: 0xf5e6c8, alpha }).stroke(line);
         g.poly([cx - 12, cy - 4, cx, cy - 14, cx + 12, cy - 4]).fill({ color: pc, alpha }).stroke(line);
         break;
+      case 'city':
+        // Small walled town: wall, two towers and a flag.
+        g.rect(cx - 12, cy - 4, 24, 12).fill({ color: 0xd7ccc8, alpha }).stroke(line);
+        g.rect(cx - 14, cy - 10, 6, 18).fill({ color: 0xbcaaa4, alpha }).stroke(line);
+        g.rect(cx + 8, cy - 10, 6, 18).fill({ color: 0xbcaaa4, alpha }).stroke(line);
+        g.poly([cx - 6, cy - 4, cx, cy - 12, cx + 6, cy - 4]).fill({ color: pc, alpha }).stroke(line);
+        g.moveTo(cx, cy - 12).lineTo(cx, cy - 20).stroke({ color: 0x3e2723, width: 1.5, alpha });
+        g.rect(cx, cy - 20, 7, 4).fill({ color: pc, alpha });
+        break;
       case 'house':
         g.rect(cx - 6, cy - 3, 12, 9).fill({ color: 0xd7ccc8, alpha }).stroke(line);
         g.poly([cx - 8, cy - 3, cx, cy - 10, cx + 8, cy - 3]).fill({ color: pc, alpha }).stroke(line);

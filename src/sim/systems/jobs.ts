@@ -6,6 +6,7 @@ import { getPlayer, logEvent, maxVillagerHp } from '../state';
 import { Knowledge, type Building, type GameState, type Villager } from '../types';
 import { isComplete, recomputeTerritory } from './territory';
 import { enemiesOnTile } from './combat';
+import { lacksWorkforce } from './cities';
 
 export { workEfficiency };
 
@@ -98,6 +99,8 @@ function stepVillager(state: GameState, v: Villager): void {
         v.order = b && BUILDINGS[b.type].workerSlots > workersAt(state, b.id).length ? { kind: 'work', building: b.id } : { kind: 'idle' };
         return;
       }
+      // Some buildings (branch cities) need a crowd on site before work can start.
+      if (lacksWorkforce(state, b)) return;
       const speed = getModifiers(getPlayer(state, v.owner)).buildSpeed;
       b.progress += (eff * speed) / (BUILDINGS[b.type].buildSeconds * tps);
       if (b.progress >= 1) completeBuilding(state, b);
