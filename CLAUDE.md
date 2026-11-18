@@ -41,7 +41,7 @@ src/sim/                 deterministic simulation (no DOM)
   modifiers.ts           DEFAULT_MODIFIERS + getModifiers(player): sums tech/policy `effects`
   economy.ts             rates: gather/building/research per worker, incomePerMinute (incl. trade), canAfford/pay, workEfficiency
   hex.ts                 pointy-top hexes, "odd-r" offset; tile index = row*width+col; neighbors (dir order E,NE,NW,W,SW,SE), hexDistance, tilesInRadius
-  mapgen.ts              value-noise continent map from seed
+  mapgen.ts              value-noise continent map from seed (+ fine 'grove' noise → scattered forests; GROVE_THRESHOLD)
   pathfinding.ts         A* over land, moveCost from terrain
   rng.ts                 mulberry32
   state.ts               logEvent, newVillager, getPlayer, secondsToTicks, maxVillagerHp
@@ -86,6 +86,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - **Balance tweak**: edit JSON only.
 - **New tech/policy**: add to `tech.json`/`policies.json`; effects must be keys of `DEFAULT_MODIFIERS`. New effect key ⇒ add default in `modifiers.ts` and apply it where relevant.
 - **New building**: add to `buildings.json` (all fields incl. `hp`, `trainingSlots`, `garrisonSlots`), draw it in `renderer.ts` `drawBuilding`, add special behavior in systems if needed, maybe AI usage in `ai.ts`. `BuildingType` is derived from the JSON keys.
+  - Production scaling is data-driven in `economy.buildingRatePerWorker`: `rateModifier` (modifier key), `freshWaterBonus`, `nonStoneMultiplier`, `nonForestMultiplier`, `forestAdjacencyBonus`. Placement restrictions: `placement`, `forbiddenTerrain`, `territory`, `maxOutsideDistance`. Prefer adding a generic field over `b.type === '…'` checks.
 - **New command**: add to the `Command` union, handle in `validateCommand` + `applyCommand` (TS exhaustiveness will flag switches), expose in UI via `controller.issue(...)`, consider AI usage, add tests. Server forwards any command whose `player` matches the sender (except `playerLeft`, which only the server may send).
 - **New villager order**: add to `VillagerOrder` in `types.ts`, handle in `systems/jobs.ts`, status text in `ui/describe.ts`.
 - **New per-tick system**: new file in `systems/`, call it from `stepGame` in a deliberate position; keep it deterministic; throttle to 1/s with `state.tick % BALANCE.ticksPerSecond === 0` if heavy.
@@ -99,7 +100,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Single-player `GameController` applies queued commands at the next tick; commands validated against the *current* state (a command depending on a not-yet-applied one, e.g. setSoldier then garrison in the same 100 ms, is rejected — scripts must wait a tick).
 
 ## Testing
-- `tests/sim.test.ts` (M1), `m2`…`m5` (feature rules), `net.test.ts` (real server on port 0 + two headless peers; checks per-frame hash equality and AI takeover).
+- `tests/sim.test.ts` (M1), `m2`…`m5` (feature rules), `wood.test.ts` (wood availability across seeds, lumber camp), `net.test.ts` (real server on port 0 + two headless peers; checks per-frame hash equality and AI takeover).
 - Use helpers in `tests/helpers.ts`. Tests that mutate `BALANCE` must restore it (see `m5.test.ts` afterEach).
 - AI balance check (not committed): write a temporary test that runs 3 AIs for 20–40 min and logs pop/buildings/research/relations (see git history of M4/M5 for the approach). Delete it afterwards.
 
@@ -111,6 +112,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 ## Known limitations / TODO ideas
 - No save/load. No unit formations or box selection on the map (group select via list only).
 - AI is rule-based and can stall on maps without stone (fallback: weak mine on any land).
+- Building jobs (farm/mine/lumber) never deplete, so workers never go idle on their own; the AI's `rebalance()` pulls one worker per think for houses, unattended sites, missing wood producers or big surpluses. Keep that in mind when adding new infinite jobs.
 - Validation of stale/queued commands (see above). Lobby has no reconnect.
 - `server/server.ts` duplicates `NATIONS`/constants from `src/net/protocol.ts` so it runs with plain `node`; keep both in sync.
 

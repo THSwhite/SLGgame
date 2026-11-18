@@ -25,6 +25,10 @@ export function hasFreshWaterNearby(state: GameState, tile: number): boolean {
   return neighbors(state, tile).some((n) => TERRAIN[state.tiles[n].terrain].freshWater);
 }
 
+export function adjacentForests(state: GameState, tile: number): number {
+  return neighbors(state, tile).filter((n) => state.tiles[n].terrain === 'forest').length;
+}
+
 const GATHER_MOD: Record<ResourceType, keyof Modifiers> = {
   food: 'gatherFood',
   wood: 'gatherWood',
@@ -46,8 +50,9 @@ export function buildingRatePerWorker(state: GameState, b: Building): Rates {
   let mult = 1;
   if (def.freshWaterBonus && hasFreshWaterNearby(state, b.tile)) mult += def.freshWaterBonus;
   if (def.nonStoneMultiplier !== undefined && tile.terrain !== 'stone') mult *= def.nonStoneMultiplier;
-  if (b.type === 'farm') mult *= mods.farmRate;
-  if (b.type === 'mine') mult *= mods.mineRate;
+  if (def.nonForestMultiplier !== undefined && tile.terrain !== 'forest') mult *= def.nonForestMultiplier;
+  if (def.forestAdjacencyBonus) mult *= 1 + def.forestAdjacencyBonus * adjacentForests(state, b.tile);
+  if (def.rateModifier && def.rateModifier in mods) mult *= mods[def.rateModifier as keyof Modifiers];
   for (const r of RESOURCE_TYPES) {
     const base = def.production[r] ?? 0;
     if (base <= 0) continue;

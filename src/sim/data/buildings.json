@@ -34,13 +34,14 @@
     "freshWaterBonus": 0.5,
     "trainingSlots": 0,
     "garrisonSlots": 0,
-    "hp": 120
+    "hp": 120,
+    "rateModifier": "farmRate"
   },
   "mine": {
     "name": "礦場",
     "buildable": true,
     "cost": {
-      "wood": 40
+      "wood": 30
     },
     "buildSeconds": 20,
     "placement": "land",
@@ -56,13 +57,40 @@
     "nonStoneMultiplier": 0.1,
     "trainingSlots": 0,
     "garrisonSlots": 0,
+    "hp": 150,
+    "rateModifier": "mineRate"
+  },
+  "lumber": {
+    "name": "伐木場",
+    "buildable": true,
+    "cost": {
+      "wood": 25
+    },
+    "buildSeconds": 15,
+    "placement": "land",
+    "forbiddenTerrain": [
+      "stone"
+    ],
+    "territory": "near",
+    "territoryRadius": 0,
+    "visionRadius": 1,
+    "popCap": 0,
+    "workerSlots": 3,
+    "production": {
+      "wood": 0.6
+    },
+    "trainingSlots": 0,
+    "garrisonSlots": 0,
+    "rateModifier": "lumberRate",
+    "nonForestMultiplier": 0.35,
+    "forestAdjacencyBonus": 0.1,
     "hp": 150
   },
   "house": {
     "name": "民宅",
     "buildable": true,
     "cost": {
-      "wood": 60
+      "wood": 50
     },
     "buildSeconds": 20,
     "placement": "land",
@@ -80,7 +108,7 @@
     "name": "兵營",
     "buildable": true,
     "cost": {
-      "wood": 80,
+      "wood": 60,
       "stone": 30
     },
     "buildSeconds": 30,
@@ -99,7 +127,7 @@
     "name": "瞭望塔",
     "buildable": true,
     "cost": {
-      "wood": 50,
+      "wood": 40,
       "stone": 40
     },
     "buildSeconds": 25,
@@ -120,7 +148,7 @@
     "name": "研究所",
     "buildable": true,
     "cost": {
-      "wood": 80
+      "wood": 60
     },
     "buildSeconds": 25,
     "placement": "land",

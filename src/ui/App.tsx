@@ -4,6 +4,7 @@ import { MapRenderer } from '../client/renderer';
 import { BALANCE, BUILDING_TYPES, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES, TERRAIN, type ResourceType } from '../sim/data';
 import { validateCommand } from '../sim/commands';
 import {
+  adjacentForests,
   buildingRatePerWorker,
   hasFreshWaterNearby,
   incomePerMinute,
@@ -506,6 +507,14 @@ function BuildingInfo({ controller, state, tile }: { controller: GameController;
           )}
           {b.type === 'farm' && hasFreshWaterNearby(state, b.tile) && <div className="pos">鄰近淡水：產量 +{(def.freshWaterBonus ?? 0) * 100}%</div>}
           {b.type === 'mine' && state.tiles[b.tile].terrain !== 'stone' && <div className="neg">不在石地上：產量極低</div>}
+          {def.nonForestMultiplier !== undefined && state.tiles[b.tile].terrain !== 'forest' && (
+            <div className="neg">不在森林裡：產量 ×{def.nonForestMultiplier}</div>
+          )}
+          {def.forestAdjacencyBonus !== undefined && adjacentForests(state, b.tile) > 0 && (
+            <div className="pos">
+              周圍 {adjacentForests(state, b.tile)} 格森林：產量 +{Math.round(def.forestAdjacencyBonus * adjacentForests(state, b.tile) * 100)}%
+            </div>
+          )}
         </>
       )}
       {mine && vid !== null && b.progress >= 1 && def.trainingSlots > 0 && (

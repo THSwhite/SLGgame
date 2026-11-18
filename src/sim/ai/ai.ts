@@ -1,7 +1,7 @@
 import { BALANCE, BUILDINGS, TECHS, TERRAIN, type BuildingType, type ResourceType } from '../data';
 import { applyCommand, validatePlacement, type Command } from '../commands';
 import { hexDistance, tilesInRadius } from '../hex';
-import { hasFreshWaterNearby, incomePerMinute, workersAt } from '../economy';
+import { adjacentForests, hasFreshWaterNearby, incomePerMinute, workersAt } from '../economy';
 import { secondsToTicks } from '../state';
 import { foodConsumptionPerMinute } from '../systems/food';
 import { populationCap } from '../systems/population';
@@ -167,7 +167,7 @@ class Brain {
     const { aggression, openness } = this.ai;
     const order = ['agriculture', 'tools', 'writing'];
     order.push(aggression > 0.5 ? 'warEconomy' : 'recuperate');
-    order.push('masonry', 'mining', 'irrigation', 'drill');
+    order.push('forestry', 'masonry', 'mining', 'irrigation', 'drill');
     order.push(aggression > 0.66 ? 'heavy' : aggression > 0.33 ? 'light' : 'guerrilla');
     order.push(openness > 0.5 ? 'openDoor' : 'isolation');
     order.push(...Object.keys(TECHS));
@@ -238,17 +238,61 @@ class Brain {
 
   private economy() {
     const free = this.villagers.filter((v) => !v.soldier && v.order.kind === 'idle' && v.path.length === 0);
-    // Food emergency: pull a wood/stone gatherer back to food.
-    if (this.foodNet < 0 && free.length === 0) {
-      const g = this.villagers.find((v) => v.order.kind === 'gather' && v.order.resource !== 'food');
-      if (g) free.push(g);
+    // Building jobs never run out, so workers never go idle by themselves:
+    // pull one worker off a job when something more urgent needs doing.
+    if (free.length === 0) {
+      const v = this.rebalance();
+      if (v) free.push(v);
     }
     for (const v of free) {
       if (this.assign(v)) continue;
       // Default jobs: wood while it is scarce, otherwise food, stone and exploration.
-      if (this.stock('wood') < 300 && this.gather(v, 'wood')) continue;
+      if (this.stock('wood') < 300 && (this.workAt(v, 'lumber') || this.gather(v, 'wood'))) continue;
       this.workAt(v, 'farm') || this.workAt(v, 'mine') || this.gather(v, 'stone') || this.explore(v) || this.gather(v, 'food') || this.gather(v, 'wood');
     }
+  }
+
+  /** Which resource a villager is currently producing, if any. */
+  private producing(v: Villager): ResourceType | 'research' | null {
+    if (v.order.kind === 'gather') return v.order.resource;
+    if (v.order.kind !== 'work') return null;
+    const id = v.order.building;
+    const b = this.buildings.find((x) => x.id === id);
+    if (!b) return null;
+    if (BUILDINGS[b.type].researchPerWorker) return 'research';
+    const prod = BUILDINGS[b.type].production as Partial<Record<ResourceType, number>>;
+    return (Object.keys(prod) as ResourceType[])[0] ?? null;
+  }
+
+  private rebalance(): Villager | null {
+    const workers = this.villagers.filter((v) => !v.soldier && v.path.length === 0 && this.producing(v) !== null);
+    const pick = (pred: (r: ResourceType | 'research') => boolean) =>
+      workers.filter((v) => pred(this.producing(v)!)).sort((a, b) => b.id - a.id)[0] ?? null;
+    const foodSafe = this.foodNet > 15;
+    const notFood = (r: ResourceType | 'research') => r !== 'food' && r !== 'research';
+    const pop = this.villagers.length;
+    const cap = populationCap(this.state, this.me);
+
+    // Housing is the usual bottleneck.
+    if (cap - pop <= 1 && !this.hasSite('house') && this.affordable('house')) {
+      return pick(notFood) ?? (foodSafe ? pick((r) => r === 'food') : null);
+    }
+    // Unattended construction site.
+    const unattended = this.buildings.some(
+      (b) => !isComplete(b) && !this.state.villagers.some((x) => x.order.kind === 'construct' && x.order.building === b.id),
+    );
+    if (unattended) return pick(notFood);
+    // Nobody makes wood and we are short of it.
+    const woodMakers = workers.filter((v) => this.producing(v) === 'wood').length;
+    if (this.stock('wood') < 80 && woodMakers === 0) return pick((r) => r === 'stone' || r === 'ore') ?? (foodSafe ? pick((r) => r === 'food') : null);
+    // Big surplus of something: move one producer elsewhere.
+    for (const r of ['wood', 'stone', 'ore'] as ResourceType[]) {
+      if (this.stock(r) > 500) {
+        const v = pick((x) => x === r);
+        if (v) return v;
+      }
+    }
+    return null;
   }
 
   private explorers(): number {
@@ -279,6 +323,14 @@ class Brain {
       }
       if (this.gather(v, 'food')) return true;
     }
+
+    // 2b. A lumber camp early on, as close to forest as possible.
+    if (pop >= 4 && this.count('lumber') === 0 && !this.hasSite('lumber')) {
+      const forestScore = (t: number) =>
+        (state.tiles[t].terrain === 'forest' ? 6 : 0) + adjacentForests(state, t) - hexDistance(state, t, me.startTile) * 0.5;
+      if (this.place(v, 'lumber', forestScore)) return true;
+    }
+    if (this.stock('wood') < 150 && this.workAt(v, 'lumber')) return true;
 
     // 3. Housing.
     if (cap - pop <= 1 && !this.hasSite('house')) {

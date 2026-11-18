@@ -8,6 +8,7 @@ import type { Player } from './types';
 export const DEFAULT_MODIFIERS = {
   farmRate: 1,
   mineRate: 1,
+  lumberRate: 1,
   gatherFood: 1,
   gatherWood: 1,
   gatherStone: 1,

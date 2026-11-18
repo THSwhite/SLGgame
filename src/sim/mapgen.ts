@@ -36,11 +36,16 @@ function fbm(noises: Array<(x: number, y: number) => number>, x: number, y: numb
   return total / weight;
 }
 
+/** Higher = fewer scattered groves (0..1). */
+const GROVE_THRESHOLD = 0.72;
+
 /** Generate a continent-style map. The same seed always gives the same map. */
 export function generateMap(seed: number, grid: GridSize): Tile[] {
   const rng = new Rng(seed);
   const elevN = [8, 4, 2].map((c) => makeNoise(rng, grid, c));
   const moistN = [6, 3].map((c) => makeNoise(rng, grid, c));
+  // Fine-grained noise for small groves, so most areas have some forest nearby.
+  const groveN = makeNoise(rng, grid, 2);
 
   const terrain: TerrainType[] = [];
   const elevation: number[] = [];
@@ -68,6 +73,7 @@ export function generateMap(seed: number, grid: GridSize): Tile[] {
     else if (m > 0.5 && e < 0.52) t = 'mud';
     else if (m < 0.33 && e < 0.47) t = 'sand';
     else t = 'grass';
+    if ((t === 'grass' || t === 'mud') && groveN(x, y) > GROVE_THRESHOLD) t = 'forest';
     terrain.push(t);
   }
 

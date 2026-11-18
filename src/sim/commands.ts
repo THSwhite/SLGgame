@@ -79,6 +79,7 @@ export function validatePlacement(state: GameState, player: Player, tile: TileIn
   }
   if (t.owner !== -1 && t.owner !== player.id) return '這是其他國家的國土';
   if (def.placement === 'farmable' && !TERRAIN[t.terrain].farmable) return `${def.name}需要可耕作的土地（草地、泥地）`;
+  if (def.forbiddenTerrain?.includes(t.terrain)) return `${def.name}不能蓋在${TERRAIN[t.terrain].name}上`;
   if (def.territory === 'connected' && !connectsToTerritory(state, player.id, tile, def.territoryRadius)) {
     return '國土建築必須與現有國土相連';
   }

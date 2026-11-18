@@ -119,6 +119,14 @@ export interface BuildingDef {
   production: Partial<Record<ResourceType, number>>;
   freshWaterBonus?: number;
   nonStoneMultiplier?: number;
+  /** Production multiplier when not standing on forest (lumber camp). */
+  nonForestMultiplier?: number;
+  /** Extra production per adjacent forest tile (0.1 = +10% each). */
+  forestAdjacencyBonus?: number;
+  /** Terrains this building may not be placed on. */
+  forbiddenTerrain?: string[];
+  /** Modifier key (see modifiers.ts) that scales this building's production. */
+  rateModifier?: string;
   /** Overrides nonTerritoryBuildingMaxDistance for 'near' buildings. */
   maxOutsideDistance?: number;
   trainingSlots: number;

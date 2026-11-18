@@ -65,7 +65,7 @@ npm install        # 第一次執行前，安裝套件
 | `exploreSeconds` | 探索一塊地需要幾秒 | 5 |
 | `moveSecondsPerTile` | 在一般地形上走一格需要幾秒（會再乘以地形的移動耗費） | 1.5 |
 | `gatherPerSecond` | 徒手採集速度（每秒） | 糧 1、木 0.8、石 0.6、礦 0.4 |
-| `startingVillagers` / `startingStock` | 開局的村民數量 / 資源 | 3 人；糧 100、木 50 |
+| `startingVillagers` / `startingStock` | 開局的村民數量 / 資源 | 3 人；糧 100、木 80 |
 | `villagerLevels` | 各等級的糧耗（每分鐘）、能否從軍、工作效率 | LV1：6 糧、不可從軍、×1.0；LV2：9 糧、可從軍、×1.3 |
 | `warSoldierFoodMultiplier` | 戰時士兵的糧耗倍率（戰爭懲罰） | 1.25 |
 | `starvingWorkEfficiency` | 糧食吃完時的工作效率 | 0.5 |
@@ -89,6 +89,7 @@ npm install        # 第一次執行前，安裝套件
 | `cost` | 成本，例如 `{ "wood": 60, "stone": 10 }` |
 | `buildSeconds` | 建造時間（1 位村民、效率 1 的情況） |
 | `placement` | `"land"` 任何陸地 ／ `"farmable"` 只能蓋在可耕作地 |
+| `forbiddenTerrain` | 不能蓋在哪些地形上，例如伐木場的 `["stone"]` |
 | `territory` | `"connected"` 國土建築，範圍必須和現有國土相連 ／ `"near"` 國土內或國土外幾格內 ／ `"foreign"` 蓋在建交對象的國土內（領事館）／ `"none"` |
 | `maxOutsideDistance` | 只對 `"near"` 有效，覆蓋預設的「國土外幾格」 |
 | `territoryRadius` | 提供的國土半徑（0 = 不提供） |
@@ -100,12 +101,18 @@ npm install        # 第一次執行前，安裝套件
 | `researchPerWorker` | 每位研究員每秒產生的研究點數 |
 | `freshWaterBonus` | 鄰近淡水的產量加成（農田 0.5 = +50%） |
 | `nonStoneMultiplier` | 蓋在非石地上的產量倍率（礦場 0.1） |
+| `nonForestMultiplier` | 不是蓋在森林上的產量倍率（伐木場 0.35） |
+| `forestAdjacencyBonus` | 周圍每一格森林增加的產量（伐木場 0.1 = 每格 +10%） |
+| `rateModifier` | 由哪個科技／國策效果來加成產量，例如 `"farmRate"`、`"mineRate"`、`"lumberRate"` |
 | `hp` | 生命值 |
 
 > **新增一種建築**：只改 JSON 不夠。還需要在 `src/client/renderer.ts` 的 `drawBuilding` 加上它的圖案；如果它有特殊效果，也要寫程式。可以直接請 Claude Code 幫忙。
 
 ### 3.3 `terrain.json`：地形
 每種地形的名稱、能不能通行（`land`）、是否淡水、移動耗費、可否耕作、顏色，以及可能出現的資源（`deposits`：資源種類、出現機率、數量範圍）。
+草地、泥地、沙地都有一定機率出現「野地木材」（零星樹木，採完就沒了），可以調整 `deposits` 裡 `wood` 的 `chance`。
+
+**森林的多寡**由 `src/sim/mapgen.ts` 開頭的 `GROVE_THRESHOLD` 控制（0～1，數字越小，零星小樹林越多；目前是 0.72）。
 
 ### 3.4 `tech.json`：科技樹
 ```json
@@ -123,7 +130,7 @@ npm install        # 第一次執行前，安裝套件
 
 | 效果 | 意思 |
 |---|---|
-| `farmRate` / `mineRate` | 農田 / 礦場產量 |
+| `farmRate` / `mineRate` / `lumberRate` | 農田 / 礦場 / 伐木場產量 |
 | `gatherFood` `gatherWood` `gatherStone` `gatherOre` | 徒手採集速度 |
 | `buildSpeed` / `trainSpeed` / `researchRate` | 建造 / 訓練 / 研究速度 |
 | `towerRadiusBonus` / `towerVisionBonus` | 瞭望塔國土 / 視野 +N 格 |

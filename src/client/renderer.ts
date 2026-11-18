@@ -330,6 +330,14 @@ export class MapRenderer {
         g.poly([cx - 12, cy - 4, cx, cy - 13, cx + 12, cy - 4]).fill({ color: 0x5c6bc0, alpha }).stroke(line);
         g.circle(cx, cy + 1, 3).fill({ color: pc, alpha });
         break;
+      case 'lumber':
+        // Log pile with a little roof.
+        for (let k = 0; k < 3; k++) {
+          g.roundRect(cx - 11, cy - 1 + k * 4, 22, 4, 2).fill({ color: k % 2 ? 0x8d6e63 : 0xa1887f, alpha }).stroke({ ...line, width: 1 });
+        }
+        g.poly([cx - 12, cy - 2, cx, cy - 11, cx + 12, cy - 2]).fill({ color: 0x4e342e, alpha }).stroke(line);
+        g.circle(cx + 10, cy - 9, 3).fill({ color: pc, alpha });
+        break;
       case 'mine':
         g.poly([cx - 12, cy + 7, cx, cy - 11, cx + 12, cy + 7]).fill({ color: 0x616161, alpha }).stroke(line);
         g.poly([cx - 4, cy + 7, cx - 4, cy + 1, cx, cy - 2, cx + 4, cy + 1, cx + 4, cy + 7]).fill({ color: 0x212121, alpha });
