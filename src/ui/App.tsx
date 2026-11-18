@@ -24,7 +24,7 @@ import { DiplomacyPanel, pendingProposals } from './DiplomacyPanel';
 import { foodConsumptionPerMinute } from '../sim/systems/food';
 import { populationBlocked, populationCap, populationCount } from '../sim/systems/population';
 import { Knowledge, type GameState } from '../sim/types';
-import { formatTime, terrainLabel, tileLabel, villagerStatus } from './describe';
+import { activityIcon, formatTime, terrainLabel, tileLabel, villagerStatus } from './describe';
 
 const SPEED_LABEL: Record<Speed, string> = { 0: '⏸', 1: '1×', 2: '2×', 5: '5×' };
 
@@ -548,6 +548,35 @@ function BuildingInfo({ controller, state, tile }: { controller: GameController;
   );
 }
 
+/** Everyone standing on the tile (that we can see) and what they are doing. */
+function UnitsOnTile({ state, me, tile }: { state: GameState; me: number; tile: number }) {
+  const player = state.players[me];
+  if (!player.visible[tile]) return null;
+  const units = state.villagers.filter((v) => v.tile === tile);
+  if (units.length === 0) return null;
+  return (
+    <div className="units-on-tile">
+      <div className="hint">這一格的單位：</div>
+      {units.slice(0, 8).map((v) => {
+        const p = state.players[v.owner];
+        return (
+          <div key={v.id} className="unit-row">
+            <span className="swatch" style={{ background: p.color }} />
+            <span>
+              {v.owner === me ? '' : `${p.name} `}
+              {v.soldier ? '士兵' : '村民'} #{v.id} <small>LV{v.level}</small>
+            </span>
+            <span className="status">
+              {activityIcon(state, v)} {villagerStatus(state, v)}
+            </span>
+          </div>
+        );
+      })}
+      {units.length > 8 && <div className="hint">……還有 {units.length - 8} 人</div>}
+    </div>
+  );
+}
+
 function TilePanel({ controller, state }: { controller: GameController; state: GameState }) {
   const tile = controller.selection.tile;
   const vid = controller.selection.villager;
@@ -584,6 +613,7 @@ function TilePanel({ controller, state }: { controller: GameController; state: G
       )}
       {def.land && !explored && <div className="hint">需要派村民探索（{BALANCE.exploreSeconds} 秒）才能得知資源。</div>}
       <BuildingInfo controller={controller} state={state} tile={tile} />
+      <UnitsOnTile state={state} me={me.id} tile={tile} />
       {villager && def.land && (
         <div className="actions">
           <div className="hint">對村民 #{villager.id} 下令：</div>

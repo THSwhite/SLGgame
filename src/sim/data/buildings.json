@@ -13,7 +13,8 @@
     "production": {},
     "trainingSlots": 0,
     "garrisonSlots": 0,
-    "hp": 600
+    "hp": 600,
+    "capturable": true
   },
   "farm": {
     "name": "農田",
@@ -35,7 +36,8 @@
     "trainingSlots": 0,
     "garrisonSlots": 0,
     "hp": 120,
-    "rateModifier": "farmRate"
+    "rateModifier": "farmRate",
+    "capturable": true
   },
   "mine": {
     "name": "礦場",
@@ -58,7 +60,8 @@
     "trainingSlots": 0,
     "garrisonSlots": 0,
     "hp": 150,
-    "rateModifier": "mineRate"
+    "rateModifier": "mineRate",
+    "capturable": true
   },
   "lumber": {
     "name": "伐木場",
@@ -84,7 +87,8 @@
     "rateModifier": "lumberRate",
     "nonForestMultiplier": 0.35,
     "forestAdjacencyBonus": 0.1,
-    "hp": 150
+    "hp": 150,
+    "capturable": true
   },
   "house": {
     "name": "民宅",
@@ -102,7 +106,8 @@
     "production": {},
     "trainingSlots": 0,
     "garrisonSlots": 0,
-    "hp": 200
+    "hp": 200,
+    "capturable": true
   },
   "barracks": {
     "name": "兵營",
@@ -121,7 +126,8 @@
     "production": {},
     "trainingSlots": 2,
     "garrisonSlots": 0,
-    "hp": 350
+    "hp": 350,
+    "capturable": true
   },
   "watchtower": {
     "name": "瞭望塔",
@@ -142,7 +148,8 @@
     "trainingSlots": 0,
     "garrisonSlots": 2,
     "requiresGarrison": true,
-    "hp": 300
+    "hp": 300,
+    "capturable": true
   },
   "research": {
     "name": "研究所",
@@ -161,7 +168,8 @@
     "researchPerWorker": 0.2,
     "trainingSlots": 0,
     "garrisonSlots": 0,
-    "hp": 200
+    "hp": 200,
+    "capturable": true
   },
   "consulate": {
     "name": "領事館",
@@ -180,6 +188,7 @@
     "production": {},
     "trainingSlots": 0,
     "garrisonSlots": 0,
-    "hp": 150
+    "hp": 150,
+    "capturable": false
   }
 }

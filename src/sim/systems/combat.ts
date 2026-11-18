@@ -110,20 +110,30 @@ export function runCombat(state: GameState): void {
   if (dead.size) state.villagers = state.villagers.filter((v) => !dead.has(v));
 
   const destroyed = new Set<Building>();
+  let captured = false;
   for (const [b, d] of bDamage) {
     b.hp -= d.amount;
-    if (b.hp <= 0) {
+    if (b.hp > 0) continue;
+    const def = BUILDINGS[b.type];
+    const loser = getPlayer(state, b.owner).name;
+    const winner = getPlayer(state, d.by).name;
+    if (def.capturable && b.progress >= 1) {
+      // Occupation: the building (and the territory it gives) changes hands.
+      logEvent(state, b.owner, `我們的${def.name}被 ${winner} 佔領了！`);
+      logEvent(state, d.by, `佔領了 ${loser} 的${def.name}`);
+      b.owner = d.by;
+      b.hp = def.hp * BALANCE.combat.captureHpShare;
+      delete b.host;
+      captured = true;
+    } else {
       destroyed.add(b);
-      const name = BUILDINGS[b.type].name;
       const loot = plunder(state, b, d.by);
-      logEvent(state, b.owner, `我們的${name}被 ${getPlayer(state, d.by).name} 摧毀了！`);
-      logEvent(state, d.by, `摧毀了 ${getPlayer(state, b.owner).name} 的${name}${loot ? `，掠奪 ${loot}` : ''}`);
+      logEvent(state, b.owner, `我們的${def.name}被 ${winner} 摧毀了！`);
+      logEvent(state, d.by, `摧毀了 ${loser} 的${def.name}${loot ? `，掠奪 ${loot}` : ''}`);
     }
   }
-  if (destroyed.size) {
-    state.buildings = state.buildings.filter((b) => !destroyed.has(b));
-    state.mapVersion++;
-  }
+  if (destroyed.size) state.buildings = state.buildings.filter((b) => !destroyed.has(b));
+  if (destroyed.size || captured) state.mapVersion++;
 
   // Wounded villagers recover slowly inside their own territory, away from fighting.
   if (state.tick % tps === 0) {

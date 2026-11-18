@@ -81,17 +81,35 @@ describe('combat', () => {
     expect(a.hp).toBeCloseTo(b.hp, 6);
   });
 
-  it('soldiers destroy enemy buildings and plunder them', () => {
+  it('soldiers capture enemy buildings, taking their territory', () => {
     const s = twoNations();
     war(s);
-    const t = s.tiles.findIndex((tile, i) => tile.owner === 1 && !s.buildings.some((b) => b.tile === i) && TERRAIN[tile.terrain].land);
-    const house = addBuilding(s, 'house', t, 1);
-    s.buildings.find((b) => b.id === house)!.hp = BUILDINGS.house.hp;
+    exploreAll(s, 1);
+    const t = s.tiles.findIndex((tile, i) => tile.owner === 1 && !s.buildings.some((b) => b.tile === i) && TERRAIN[tile.terrain].land && hexDistance(s, i, s.players[1].startTile) === 2);
+    const id = addBuilding(s, 'house', t, 1);
+    const house = s.buildings.find((b) => b.id === id)!;
+    house.hp = BUILDINGS.house.hp;
+    const worker = s.villagers.find((v) => v.owner === 1)!;
+    for (let i = 0; i < 3; i++) soldier(s, 0, t);
+    run(s, 30);
+    expect(house.owner).toBe(0);
+    expect(house.hp).toBeGreaterThan(0);
+    expect(s.tiles[t].owner).toBe(0);
+    expect(s.events.some((e) => e.player === 1 && e.message.includes('佔領'))).toBe(true);
+    // The former owner can no longer work there.
+    expect(validateCommand(s, { type: 'work', player: 1, villager: worker.id, building: id })).not.toBeNull();
+  });
+
+  it('non-capturable buildings (consulates) are destroyed and plundered', () => {
+    const s = twoNations();
+    war(s);
+    const t = s.tiles.findIndex((tile, i) => tile.owner === 0 && !s.buildings.some((b) => b.tile === i) && TERRAIN[tile.terrain].land);
+    s.buildings.push({ id: 777, type: 'consulate', owner: 1, tile: t, progress: 1, host: 0, hp: BUILDINGS.consulate.hp });
     for (let i = 0; i < 3; i++) soldier(s, 0, t);
     const wood = s.players[0].stock.wood;
     run(s, 30);
-    expect(s.buildings.some((b) => b.id === house)).toBe(false);
-    expect(s.players[0].stock.wood - wood).toBe(Math.floor(BUILDINGS.house.cost.wood! * BALANCE.combat.plunderShare));
+    expect(s.buildings.some((b) => b.id === 777)).toBe(false);
+    expect(s.players[0].stock.wood - wood).toBe(Math.floor(BUILDINGS.consulate.cost.wood! * BALANCE.combat.plunderShare));
   });
 
   it('attacking requires a declaration of war', () => {

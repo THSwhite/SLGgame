@@ -97,6 +97,18 @@ class Brain {
     return false;
   }
 
+  /** Unclaimed land a territory building of `radius` at `tile` would add. */
+  private newLand(tile: number, radius: number): number {
+    return tilesInRadius(this.state, tile, radius).filter(
+      (t) => this.state.tiles[t].owner === -1 && TERRAIN[this.state.tiles[t].terrain].land,
+    ).length;
+  }
+
+  private expansionScore(type: BuildingType) {
+    const r = BUILDINGS[type].territoryRadius;
+    return (t: number) => this.newLand(t, r) * (1 + this.ai.expansion) - hexDistance(this.state, t, this.me.startTile) * 0.15;
+  }
+
   private gather(v: Villager, resource: ResourceType): boolean {
     const tile = this.near.find(
       (t) =>
@@ -179,8 +191,10 @@ class Brain {
 
   private desiredSoldiers(): number {
     const pop = this.villagers.length;
-    const atWar = this.me.atWar ? 2 : 0;
-    return Math.floor(pop * (0.1 + 0.3 * this.ai.aggression)) + atWar;
+    const atWar = this.me.atWar ? 3 : 0;
+    // Enough soldiers to man one post in every tower, plus the personality's army.
+    const towers = this.count('watchtower');
+    return Math.max(towers + 1, Math.floor(pop * (0.1 + 0.3 * this.ai.aggression))) + atWar;
   }
 
   private military() {
@@ -193,45 +207,71 @@ class Brain {
       }
     }
     if (this.me.atWar) this.war();
-    // Idle soldiers garrison towers with free slots.
+    // Idle soldiers garrison towers. In wartime only empty towers get one, the rest stay with the army.
     for (const v of this.villagers) {
       if (!v.soldier || v.order.kind !== 'idle' || v.path.length > 0) continue;
+      const limit = this.me.atWar ? 1 : BUILDINGS.watchtower.garrisonSlots;
       const tower = this.buildings.find(
         (b) =>
           b.type === 'watchtower' &&
           isComplete(b) &&
-          this.state.villagers.filter((x) => x.order.kind === 'garrison' && x.order.building === b.id).length <
-            BUILDINGS.watchtower.garrisonSlots,
+          this.state.villagers.filter((x) => x.order.kind === 'garrison' && x.order.building === b.id).length < limit,
       );
       if (tower) this.issue({ type: 'garrison', player: this.me.id, villager: v.id, building: tower.id });
     }
   }
 
+  /** Enemy targets this nation knows about, nearest to `from` first. Their capital is always known. */
+  private warTargets(enemies: Set<number>, from: number): number[] {
+    const { state, me } = this;
+    const tiles = state.buildings
+      .filter((b) => enemies.has(b.owner) && (me.knowledge[b.tile] === Knowledge.Explored || me.visible[b.tile]))
+      .map((b) => b.tile);
+    for (const e of enemies) {
+      const capital = state.buildings.find((b) => b.owner === e && b.type === 'camp');
+      if (capital) tiles.push(capital.tile);
+    }
+    return [...new Set(tiles)].sort((a, b) => hexDistance(state, a, from) - hexDistance(state, b, from) || a - b);
+  }
+
   private war() {
     const { state, me } = this;
     const enemies = new Set(relationsOf(state, me.id).filter((r) => r.status === 'war').map((r) => other(r, me.id)));
-    const army = this.villagers.filter(
-      (v) => v.soldier && v.path.length === 0 && (v.order.kind === 'idle' || v.order.kind === 'attack'),
-    );
-    const idleArmy = army.filter((v) => v.order.kind === 'idle');
-    if (idleArmy.length === 0) return;
-    const send = (tile: number) => {
-      for (const v of idleArmy) this.issue({ type: 'attack', player: me.id, villager: v.id, tile });
+    // The field army: every soldier not stationed in a tower.
+    const army = this.villagers.filter((v) => v.soldier && v.order.kind !== 'garrison');
+    const idle = army.filter((v) => v.order.kind === 'idle' && v.path.length === 0);
+    if (idle.length === 0) return;
+    const send = (tile: number, who: Villager[]) => {
+      for (const v of who) this.issue({ type: 'attack', player: me.id, villager: v.id, tile });
     };
 
-    // Defend: enemies seen inside our territory.
-    const intruder = state.villagers.find((v) => enemies.has(v.owner) && state.tiles[v.tile].owner === me.id && me.visible[v.tile]);
-    if (intruder) return send(intruder.tile);
+    // 1. Defend: enemies seen inside our territory.
+    const intruder = state.villagers
+      .filter((v) => enemies.has(v.owner) && state.tiles[v.tile].owner === me.id && me.visible[v.tile])
+      .sort((a, b) => Number(b.soldier) - Number(a.soldier) || a.id - b.id)[0];
+    if (intruder) return send(intruder.tile, idle);
 
-    // Attack the nearest known enemy building once the army is big enough.
-    if (army.length < 3) return;
-    const targets = state.buildings
-      .filter((b) => enemies.has(b.owner) && me.knowledge[b.tile] === Knowledge.Explored)
-      .sort((a, b) => hexDistance(state, a.tile, me.startTile) - hexDistance(state, b.tile, me.startTile) || a.id - b.id);
-    if (targets[0]) return send(targets[0].tile);
-    // Unknown enemy location: scout towards their territory.
-    const theirLand = state.tiles.findIndex((t) => t.owner !== -1 && enemies.has(t.owner));
-    if (theirLand >= 0) send(theirLand);
+    const targets = this.warTargets(enemies, me.startTile);
+    if (targets.length === 0) return;
+
+    // 2. Soldiers already in the field keep pushing to the next target near them.
+    const atFront = idle.filter((v) => state.tiles[v.tile].owner !== me.id);
+    for (const v of atFront) {
+      const next = this.warTargets(enemies, v.tile)[0];
+      if (next !== undefined) send(next, [v]);
+    }
+
+    // 3. At home: gather at the border facing the enemy until the army is big enough, then march.
+    const home = idle.filter((v) => state.tiles[v.tile].owner === me.id);
+    if (home.length === 0) return;
+    const minArmy = 3 + Math.round((1 - this.ai.aggression) * 2);
+    if (army.length >= minArmy) return send(targets[0], home);
+    const rally = state.tiles
+      .map((_, i) => i)
+      .filter((i) => state.tiles[i].owner === me.id)
+      .sort((a, b) => hexDistance(state, a, targets[0]) - hexDistance(state, b, targets[0]) || a - b)[0];
+    if (rally === undefined) return;
+    for (const v of home) if (v.tile !== rally) this.issue({ type: 'move', player: me.id, villager: v.id, tile: rally });
   }
 
   // ---------- economy ----------
@@ -332,9 +372,13 @@ class Brain {
     }
     if (this.stock('wood') < 150 && this.workAt(v, 'lumber')) return true;
 
-    // 3. Housing.
-    if (cap - pop <= 1 && !this.hasSite('house')) {
-      if (this.place(v, 'house', (t) => -Math.abs(hexDistance(state, t, me.startTile) - 3) + this.ai.expansion)) return true;
+    // 3. Housing, placed where it claims the most new land. Expansionist nations
+    //    keep building houses whenever wood allows, not only when full.
+    const spareWood = this.stock('wood') >= 400 - 200 * this.ai.expansion;
+    const houses = this.count('house');
+    const proactive = spareWood && houses < Math.floor(pop / 5) + 1;
+    if ((cap - pop <= 2 || proactive) && !this.hasSite('house')) {
+      if (this.place(v, 'house', this.expansionScore('house'))) return true;
     }
 
     // 4. Research.
@@ -369,10 +413,11 @@ class Brain {
       if (this.gather(v, 'stone')) return true;
     }
 
-    // 7. Watchtowers for the soldiers to man.
+    // 7. Watchtowers push the border furthest (radius 3) once soldiers can man them.
     const towers = this.count('watchtower');
-    if (this.soldiers() > towers * 2 && !this.hasSite('watchtower') && towers < 4) {
-      if (this.place(v, 'watchtower', (t) => hexDistance(state, t, me.startTile) + this.ai.expansion * 2)) return true;
+    const maxTowers = 1 + Math.floor(state.tick / secondsToTicks(660 - 240 * this.ai.expansion));
+    if (this.soldiers() > towers && !this.hasSite('watchtower') && towers < maxTowers) {
+      if (this.place(v, 'watchtower', this.expansionScore('watchtower'))) return true;
     }
 
     // 8. Consulates for nations we are establishing relations with.

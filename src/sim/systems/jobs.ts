@@ -15,8 +15,9 @@ function describeDeposits(state: GameState, tile: number): string {
   return '發現 ' + ds.map((d) => `${RESOURCE_NAMES[d.resource]} ${d.amount}`).join('、');
 }
 
-function findBuilding(state: GameState, id: number): Building | undefined {
-  return state.buildings.find((b) => b.id === id);
+function findBuilding(state: GameState, id: number, owner?: number): Building | undefined {
+  // A building that was captured is no longer ours to work in.
+  return state.buildings.find((b) => b.id === id && (owner === undefined || b.owner === owner));
 }
 
 function completeBuilding(state: GameState, b: Building): void {
@@ -92,7 +93,7 @@ function stepVillager(state: GameState, v: Villager): void {
       return;
     }
     case 'construct': {
-      const b = findBuilding(state, order.building);
+      const b = findBuilding(state, order.building, v.owner);
       if (!b || isComplete(b)) {
         v.order = b && BUILDINGS[b.type].workerSlots > workersAt(state, b.id).length ? { kind: 'work', building: b.id } : { kind: 'idle' };
         return;
@@ -103,7 +104,7 @@ function stepVillager(state: GameState, v: Villager): void {
       return;
     }
     case 'work': {
-      const b = findBuilding(state, order.building);
+      const b = findBuilding(state, order.building, v.owner);
       if (!b || !isComplete(b)) {
         v.order = { kind: 'idle' };
         return;
@@ -132,7 +133,7 @@ function stepVillager(state: GameState, v: Villager): void {
       return;
     }
     case 'train': {
-      const b = findBuilding(state, order.building);
+      const b = findBuilding(state, order.building, v.owner);
       if (!b || !isComplete(b) || v.level >= BALANCE.training.maxLevel) {
         v.order = { kind: 'idle' };
         return;

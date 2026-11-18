@@ -42,15 +42,19 @@ export function buildingVisionRadius(state: GameState, b: Building): number {
 
 let lastSignature = new WeakMap<GameState, string>();
 
-/** Recompute tile ownership (land only) from all territory buildings. First come, first served. */
+/** Recompute tile ownership (land only): each building holds its own tile, the rest is first come, first served. */
 export function recomputeTerritory(state: GameState): void {
   for (const t of state.tiles) t.owner = -1;
   const ordered = [...state.buildings].sort((a, b) => a.id - b.id);
+  // A territory building always holds its own tile (matters after a capture).
+  for (const b of ordered) {
+    if (territoryRadius(state, b) > 0) state.tiles[b.tile].owner = b.owner;
+  }
   const sig: string[] = [];
   for (const b of ordered) {
     const radius = territoryRadius(state, b);
     if (radius <= 0) continue;
-    sig.push(`${b.id}:${radius}`);
+    sig.push(`${b.id}:${b.owner}:${radius}`);
     for (const idx of tilesInRadius(state, b.tile, radius)) {
       const tile = state.tiles[idx];
       if (TERRAIN[tile.terrain].land && tile.owner === -1) tile.owner = b.owner;
@@ -65,7 +69,7 @@ export function updateTerritory(state: GameState): void {
   const sig: string[] = [];
   for (const b of [...state.buildings].sort((a, c) => a.id - c.id)) {
     const r = territoryRadius(state, b);
-    if (r > 0) sig.push(`${b.id}:${r}`);
+    if (r > 0) sig.push(`${b.id}:${b.owner}:${r}`);
   }
   if (lastSignature.get(state) !== sig.join(',')) recomputeTerritory(state);
 }

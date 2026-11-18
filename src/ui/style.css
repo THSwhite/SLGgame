@@ -150,3 +150,7 @@ input { background: #1b2430; color: var(--text); border: 1px solid var(--border)
 .tag-nation { font-weight: 700; }
 .log-chat { color: #fff; }
 .chat-input input { width: 100%; }
+
+.units-on-tile { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
+.unit-row { display: grid; grid-template-columns: 12px auto 1fr; gap: 6px; align-items: center; font-size: 12px; }
+.unit-row .status { text-align: right; }

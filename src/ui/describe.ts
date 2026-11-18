@@ -49,3 +49,34 @@ export function formatTime(tick: number): string {
   const s = sec % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
+
+const WORK_ICONS: Record<string, string> = { farm: '🌾', mine: '⛏', lumber: '🪓', research: '📖' };
+const GATHER_ICONS: Record<string, string> = { food: '🌾', wood: '🪓', stone: '⛏', ore: '⛏' };
+
+/** Small icon for what a villager is doing right now ('' when idle). */
+export function activityIcon(state: GameState, v: Villager): string {
+  const o = v.order;
+  switch (o.kind) {
+    case 'idle':
+      return '';
+    case 'move':
+      return '🚶';
+    case 'explore':
+      return '🔍';
+    case 'gather':
+      return GATHER_ICONS[o.resource] ?? '🧺';
+    case 'construct':
+      return '🔨';
+    case 'work': {
+      const id = o.building;
+      const b = state.buildings.find((x) => x.id === id);
+      return (b && WORK_ICONS[b.type]) ?? '🔧';
+    }
+    case 'train':
+      return '🏋';
+    case 'garrison':
+      return '🛡';
+    case 'attack':
+      return '⚔';
+  }
+}

@@ -1,4 +1,5 @@
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Container, Graphics, Text } from 'pixi.js';
+import { activityIcon } from '../ui/describe';
 import { BALANCE, BUILDINGS, TERRAIN, type ResourceType } from '../sim/data';
 import { colOf, inBounds, neighborInDir, rowOf, toIndex } from '../sim/hex';
 import { Knowledge, type Building, type GameState } from '../sim/types';
@@ -76,6 +77,9 @@ export class MapRenderer {
   private tileLayer = new Graphics();
   private overlay = new Graphics();
   private units = new Graphics();
+  /** Activity icons above villagers, one cached Text per villager id. */
+  private icons = new Container();
+  private iconTexts = new Map<number, Text>();
   private drawnVersion = -1;
   private drawnState: GameState | null = null;
   private hoverTile = -1;
@@ -94,7 +98,7 @@ export class MapRenderer {
     }
     host.appendChild(this.app.canvas);
     this.app.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-    this.world.addChild(this.tileLayer, this.overlay, this.units);
+    this.world.addChild(this.tileLayer, this.overlay, this.units, this.icons);
     this.app.stage.addChild(this.world);
     this.setupInput();
     this.centerOn(Math.floor(this.controller.state.tiles.length / 2) + this.controller.state.width / 2);
@@ -355,6 +359,22 @@ export class MapRenderer {
     }
   }
 
+  private placeIcon(state: GameState, v: GameState['villagers'][number], x: number, y: number, seen: Set<number>) {
+    const icon = activityIcon(state, v);
+    if (!icon) return;
+    seen.add(v.id);
+    let t = this.iconTexts.get(v.id);
+    if (!t) {
+      t = new Text({ text: icon, style: { fontSize: 13 } });
+      t.anchor.set(0.5, 1);
+      this.icons.addChild(t);
+      this.iconTexts.set(v.id, t);
+    } else if (t.text !== icon) {
+      t.text = icon;
+    }
+    t.position.set(x + 7, y - 7);
+  }
+
   private drawUnits(state: GameState) {
     const g = this.units;
     g.clear();
@@ -371,6 +391,7 @@ export class MapRenderer {
       g.circle(cx, cy, HEX_SIZE - 4).stroke({ color: 0xff1744, width: 2 + pulse * 2, alpha: 0.6 + 0.4 * pulse });
     }
     const group = new Set(this.controller.selection.group);
+    const seen = new Set<number>();
     const perTile = new Map<number, number>();
     for (const v of state.villagers) {
       if (v.owner !== me.id && me.visible[v.tile] !== 1) continue;
@@ -381,6 +402,7 @@ export class MapRenderer {
       // Stand above buildings so both stay visible.
       y += state.buildings.some((b) => b.tile === v.tile) && v.path.length === 0 ? -15 : -2;
       const selected = this.controller.selection.villager === v.id || group.has(v.id);
+      this.placeIcon(state, v, x, y, seen);
       if (selected) g.circle(x, y, 8.5).stroke({ color: 0xffffff, width: 2.5 });
       const color = hex(state.players[v.owner].color);
       if (v.soldier) {
@@ -406,6 +428,12 @@ export class MapRenderer {
       }
       if (v.order.kind === 'gather' && v.path.length === 0) {
         g.circle(x + 6, y - 6, 2.5).fill(RESOURCE_COLORS[v.order.resource]);
+      }
+    }
+    for (const [id, t] of this.iconTexts) {
+      if (!seen.has(id)) {
+        t.destroy();
+        this.iconTexts.delete(id);
       }
     }
   }

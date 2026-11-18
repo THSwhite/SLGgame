@@ -81,6 +81,8 @@ export interface Balance {
     plunderShare: number;
     /** Damage multiplier when a soldier supports a battle on an adjacent tile. */
     supportDamageMultiplier: number;
+    /** HP share a captured building keeps. */
+    captureHpShare: number;
   };
   victory: { territoryShare: number; timeLimitMinutes: number };
   mapSizes: Record<string, { width: number; height: number; name: string }>;
@@ -138,6 +140,8 @@ export interface BuildingDef {
   /** Research points per second per worker. */
   researchPerWorker?: number;
   hp: number;
+  /** Captured (instead of destroyed) when its HP reaches 0 in war. */
+  capturable?: boolean;
 }
 
 export const BUILDINGS = buildingsJson as Record<BuildingType, BuildingDef>;

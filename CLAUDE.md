@@ -47,13 +47,14 @@ src/sim/                 deterministic simulation (no DOM)
   state.ts               logEvent, newVillager, getPlayer, secondsToTicks, maxVillagerHp
   systems/               one file per per-tick system (see tick order)
   ai/start.ts            chooseAIStarts (after all humans picked)
-  ai/ai.ts               Brain: diplomacy → research → military(+war) → economy; runs every BALANCE.ai.thinkEverySeconds, staggered per player
+  ai/ai.ts               Brain: diplomacy → research → military(+war: defend, rally at border, attack nearest known target / enemy capital) → economy (rebalance, expansion by newLand score); runs every BALANCE.ai.thinkEverySeconds, staggered per player
 src/client/
   controller.ts          GameController: real time → ticks, command queue, speed, selection (villager/tile/group), newGame(options)
   net.ts                 NetClient (lobby/WebSocket) + NetGameController (overrides issue/update/setSpeed; driven by server 'step')
   renderer.ts            PixiJS MapRenderer: tile layer cached by state.mapVersion; units/buildings/overlay redrawn per frame
   audio.ts               music playlists (public/audio/music, CC0, see public/audio/CREDITS.md) + Web Audio synthesized SFX; client-only
   log.ts                 MessageLog: client-side history (events of the local player + chat), capped at 500
+src/ui/describe.ts       villagerStatus / activityIcon (also used by renderer icons and the units-on-tile list)
 src/ui/ChatLog.tsx       bottom-left log; Enter opens history + input; chat via controller.sendChat (net: {t:'chat'} through server)
 src/ui/Sound.tsx         useGameAudio(controller): SFX via controller.onIssue + relation-status watcher, music mood; SoundButton
 src/net/protocol.ts      ClientMessage/ServerMessage types, NATIONS, constants
@@ -77,7 +78,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 
 ## Key game rules encoded in code (see GDD for full list)
 - Knowledge per player: `knowledge[i]` 0 Unknown (land/water only) / 1 Explored; `visible[i]` derived each tick. Territory is always visible.
-- Territory = land tiles within `territoryRadius` of *active* territory buildings, first-come by building id. Watchtowers are active only while garrisoned (`isActive`).
+- Territory = land tiles within `territoryRadius` of *active* territory buildings; each building first holds its own tile, then first-come by building id. Territory signature includes owner (captures trigger a recompute). Watchtowers are active only while garrisoned (`isActive`).
 - Placement rules: `validatePlacement` (territory: connected / near / foreign). `connectsToTerritory` enforces contiguous territory.
 - Population grows only if `populationBlocked` is null (cap from camp+houses; food protection: income ≥ consumption + newcomer).
 - Soldiers: level ≥ 2, cannot gather/work/build/train. Training is uninterruptible once paid.
@@ -86,6 +87,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - While allied (both consulates built), `shareExploration` merges both nations' `knowledge` every second (and once when becoming allied). Knowledge is never reset, so it survives a break-up. Consulates give their owner vision (`visionRadius` 2).
 - Combat only between nations with relation status `war`; `attack` command refuses tiles of nations not at war.
 - Support: a stationary soldier with no enemy on its tile hits an enemy on an adjacent tile where its nation is fighting (own unit/building present), at `combat.supportDamageMultiplier`; supporters are not hit back.
+- Capture: a complete building with `capturable` that drops to 0 HP changes owner (HP → `captureHpShare`); others are destroyed and plundered. Jobs check `b.owner === v.owner` so former owners stop working there.
 - Elimination: no villagers or no complete territory building. Victory: conquest / territory share / time limit (score `nationScore`).
 
 ## How to add things
@@ -108,7 +110,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 ## Testing
 - `tests/sim.test.ts` (M1), `m2`…`m5` (feature rules), `wood.test.ts` (wood availability across seeds, lumber camp), `net.test.ts` (real server on port 0 + two headless peers; checks per-frame hash equality and AI takeover).
 - Use helpers in `tests/helpers.ts`. Tests that mutate `BALANCE` must restore it (see `m5.test.ts` afterEach).
-- AI balance check (not committed): write a temporary test that runs 3 AIs for 20–40 min and logs pop/buildings/research/relations (see git history of M4/M5 for the approach). Delete it afterwards.
+- AI balance check (not committed): write a temporary test that runs 3 AIs (+ an idle human) for 60 min on a few seeds and logs land share / pop / soldiers / towers / houses / relations every 15 min. Last tuning: top AI ≈ 20–37% land at 30 min; territory victory around 32–45 min when the human does nothing. Delete the test afterwards.
 
 ## Browser testing
 - Chromium + Playwright are preinstalled in the cloud environment (`require('playwright')`, no install).
