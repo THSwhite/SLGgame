@@ -1,0 +1,14 @@
+{
+  "ocean":  { "name": "海洋", "land": false, "freshWater": false, "moveCost": 0,   "farmable": false, "color": "#1d4e89", "deposits": [] },
+  "lake":   { "name": "湖泊", "land": false, "freshWater": true,  "moveCost": 0,   "farmable": false, "color": "#3a86c8", "deposits": [] },
+  "grass":  { "name": "草地", "land": true,  "freshWater": false, "moveCost": 1,   "farmable": true,  "color": "#7cb342",
+    "deposits": [ { "resource": "food", "chance": 0.35, "min": 80, "max": 200 } ] },
+  "mud":    { "name": "泥地", "land": true,  "freshWater": false, "moveCost": 1.6, "farmable": true,  "color": "#8d6e4a",
+    "deposits": [ { "resource": "food", "chance": 0.15, "min": 60, "max": 150 } ] },
+  "forest": { "name": "森林", "land": true,  "freshWater": false, "moveCost": 1.5, "farmable": false, "color": "#2e7d32",
+    "deposits": [ { "resource": "wood", "chance": 1.0, "min": 200, "max": 500 }, { "resource": "food", "chance": 0.25, "min": 50, "max": 120 } ] },
+  "stone":  { "name": "石地", "land": true,  "freshWater": false, "moveCost": 1.3, "farmable": false, "color": "#9e9e9e",
+    "deposits": [ { "resource": "stone", "chance": 1.0, "min": 200, "max": 500 }, { "resource": "ore", "chance": 0.3, "min": 100, "max": 300 } ] },
+  "sand":   { "name": "沙地", "land": true,  "freshWater": false, "moveCost": 1.2, "farmable": false, "color": "#e0c97f",
+    "deposits": [ { "resource": "stone", "chance": 0.1, "min": 30, "max": 80 } ] }
+}

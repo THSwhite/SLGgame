@@ -1,0 +1,17 @@
+{
+  "ticksPerSecond": 10,
+  "map": { "width": 48, "height": 32 },
+  "exploreSeconds": 5,
+  "moveSecondsPerTile": 1.5,
+  "gatherPerSecond": { "food": 1.0, "wood": 0.8, "stone": 0.6, "ore": 0.4 },
+  "startingVillagers": 3,
+  "startingStock": { "food": 100, "wood": 50, "stone": 0, "ore": 0 },
+  "villagerLevels": {
+    "1": { "foodPerMinute": 1.0, "canEnlist": false, "workEfficiency": 1.0 },
+    "2": { "foodPerMinute": 1.5, "canEnlist": true,  "workEfficiency": 1.3 }
+  },
+  "warSoldierFoodMultiplier": 1.25,
+  "starvingWorkEfficiency": 0.5,
+  "camp": { "territoryRadius": 2, "visionRadius": 3, "exploredRadius": 2 },
+  "villagerVisionRadius": 1
+}
