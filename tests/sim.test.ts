@@ -114,10 +114,11 @@ describe('villagers', () => {
 
   it('consume food over time', () => {
     const s = started();
+    s.players[0].management.popEnabled = false;
     const food = s.players[0].stock.food;
     runSeconds(s, 60);
-    // 3 LV1 villagers eat 1 food/min each.
-    expect(food - s.players[0].stock.food).toBeCloseTo(3, 6);
+    const perVillager = BALANCE.villagerLevels['1'].foodPerMinute;
+    expect(food - s.players[0].stock.food).toBeCloseTo(3 * perVillager, 6);
   });
 
   it('path around water', () => {

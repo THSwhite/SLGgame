@@ -1,7 +1,7 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import { TERRAIN, type ResourceType } from '../sim/data';
 import { colOf, inBounds, neighborInDir, rowOf, toIndex } from '../sim/hex';
-import { Knowledge, type GameState } from '../sim/types';
+import { Knowledge, type Building, type GameState } from '../sim/types';
 import type { GameController } from './controller';
 
 export const HEX_SIZE = 26;
@@ -236,14 +236,6 @@ export class MapRenderer {
       }
     }
 
-    // Buildings.
-    for (const b of state.buildings) {
-      if (b.owner !== me.id && me.visible[b.tile] !== 1) continue;
-      const [cx, cy] = tileCenter(state, b.tile);
-      const pc = hex(state.players[b.owner].color);
-      g.rect(cx - 9, cy - 4, 18, 12).fill(0xf5e6c8).stroke({ color: 0x3e2723, width: 1.5 });
-      g.poly([cx - 12, cy - 4, cx, cy - 14, cx + 12, cy - 4]).fill(pc).stroke({ color: 0x3e2723, width: 1.5 });
-    }
   }
 
   private drawOverlay(state: GameState) {
@@ -285,10 +277,48 @@ export class MapRenderer {
     return [x, y];
   }
 
+  private drawBuilding(g: Graphics, state: GameState, b: Building) {
+    const [cx, cy] = tileCenter(state, b.tile);
+    const pc = hex(state.players[b.owner].color);
+    const done = b.progress >= 1;
+    const alpha = done ? 1 : 0.45;
+    const line = { color: 0x3e2723, width: 1.5, alpha };
+    switch (b.type) {
+      case 'camp':
+        g.rect(cx - 9, cy - 4, 18, 12).fill({ color: 0xf5e6c8, alpha }).stroke(line);
+        g.poly([cx - 12, cy - 4, cx, cy - 14, cx + 12, cy - 4]).fill({ color: pc, alpha }).stroke(line);
+        break;
+      case 'house':
+        g.rect(cx - 6, cy - 3, 12, 9).fill({ color: 0xd7ccc8, alpha }).stroke(line);
+        g.poly([cx - 8, cy - 3, cx, cy - 10, cx + 8, cy - 3]).fill({ color: pc, alpha }).stroke(line);
+        break;
+      case 'farm':
+        g.roundRect(cx - 12, cy - 9, 24, 16, 3).fill({ color: 0xc0a35a, alpha }).stroke(line);
+        for (let k = 0; k < 3; k++) {
+          g.moveTo(cx - 10, cy - 5 + k * 5).lineTo(cx + 10, cy - 5 + k * 5).stroke({ color: 0x9ccc65, width: 2, alpha });
+        }
+        g.circle(cx + 11, cy - 9, 3).fill({ color: pc, alpha });
+        break;
+      case 'mine':
+        g.poly([cx - 12, cy + 7, cx, cy - 11, cx + 12, cy + 7]).fill({ color: 0x616161, alpha }).stroke(line);
+        g.poly([cx - 4, cy + 7, cx - 4, cy + 1, cx, cy - 2, cx + 4, cy + 1, cx + 4, cy + 7]).fill({ color: 0x212121, alpha });
+        g.circle(cx + 10, cy - 7, 3).fill({ color: pc, alpha });
+        break;
+    }
+    if (!done) {
+      g.rect(cx - 12, cy + 12, 24, 4).fill(0x222222);
+      g.rect(cx - 12, cy + 12, 24 * b.progress, 4).fill(0x81c784);
+    }
+  }
+
   private drawUnits(state: GameState) {
     const g = this.units;
     g.clear();
     const me = state.players[this.controller.localPlayer];
+    for (const b of state.buildings) {
+      if (b.owner !== me.id && me.visible[b.tile] !== 1) continue;
+      this.drawBuilding(g, state, b);
+    }
     const perTile = new Map<number, number>();
     for (const v of state.villagers) {
       if (v.owner !== me.id && me.visible[v.tile] !== 1) continue;
@@ -296,7 +326,8 @@ export class MapRenderer {
       perTile.set(v.tile, slot + 1);
       let [x, y] = this.villagerPos(state, v.id);
       x += (slot - 1) * 9;
-      y -= 2;
+      // Stand above buildings so both stay visible.
+      y += state.buildings.some((b) => b.tile === v.tile) && v.path.length === 0 ? -15 : -2;
       const selected = this.controller.selection.villager === v.id;
       if (selected) g.circle(x, y, 8.5).stroke({ color: 0xffffff, width: 2.5 });
       g.circle(x, y, 6).fill(hex(state.players[v.owner].color)).stroke({ color: 0x1a1a1a, width: 1.5 });

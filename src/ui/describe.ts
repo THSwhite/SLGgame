@@ -1,4 +1,4 @@
-import { BALANCE, RESOURCE_NAMES, TERRAIN } from '../sim/data';
+import { BALANCE, BUILDINGS, RESOURCE_NAMES, TERRAIN } from '../sim/data';
 import { colOf, rowOf } from '../sim/hex';
 import { Knowledge, type GameState, type Villager } from '../sim/types';
 
@@ -14,6 +14,14 @@ export function villagerStatus(state: GameState, v: Villager): string {
       return travelling ? `前往探索（${tileLabel(state, o.target)}）` : `探索中 ${Math.floor(o.progress * 100)}%`;
     case 'gather':
       return travelling ? `前往採集${RESOURCE_NAMES[o.resource]}` : `採集${RESOURCE_NAMES[o.resource]}中`;
+    case 'construct':
+    case 'work': {
+      const id = o.building;
+      const b = state.buildings.find((x) => x.id === id);
+      const name = b ? BUILDINGS[b.type].name : '建築';
+      if (o.kind === 'construct') return travelling ? `前往建造${name}` : `建造${name} ${Math.floor((b?.progress ?? 0) * 100)}%`;
+      return travelling ? `前往${name}` : `在${name}工作`;
+    }
   }
 }
 

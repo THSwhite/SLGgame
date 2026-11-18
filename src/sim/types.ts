@@ -1,4 +1,4 @@
-import type { ResourceType, TerrainType } from './data';
+import type { BuildingType, ResourceType, TerrainType } from './data';
 
 export type PlayerId = number;
 export type TileIndex = number;
@@ -27,7 +27,9 @@ export type VillagerOrder =
   | { kind: 'idle' }
   | { kind: 'move'; target: TileIndex }
   | { kind: 'explore'; target: TileIndex; progress: number }
-  | { kind: 'gather'; target: TileIndex; resource: ResourceType };
+  | { kind: 'gather'; target: TileIndex; resource: ResourceType }
+  | { kind: 'construct'; building: number }
+  | { kind: 'work'; building: number };
 
 export interface Villager {
   id: number;
@@ -41,13 +43,22 @@ export interface Villager {
   order: VillagerOrder;
 }
 
-export type BuildingType = 'camp';
-
 export interface Building {
   id: number;
   type: BuildingType;
   owner: PlayerId;
   tile: TileIndex;
+  /** Construction progress 0..1; 1 means complete. */
+  progress: number;
+}
+
+/** Per-player settings from the management menu. */
+export interface Management {
+  /** Seconds per new villager. */
+  popIntervalSeconds: number;
+  popEnabled: boolean;
+  /** Only grow if food income still covers consumption afterwards. */
+  foodProtection: boolean;
 }
 
 export interface Player {
@@ -62,6 +73,9 @@ export interface Player {
   /** 1 if currently in vision, else 0. Derived every tick. */
   visible: number[];
   atWar: boolean;
+  management: Management;
+  /** Ticks accumulated towards the next villager. */
+  popProgress: number;
 }
 
 export interface GameEvent {

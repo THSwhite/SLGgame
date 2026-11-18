@@ -15,10 +15,6 @@ export function foodConsumptionPerMinute(state: GameState, player: Player): numb
   return total;
 }
 
-export function isStarving(player: Player): boolean {
-  return player.stock.food <= 0;
-}
-
 export function runFood(state: GameState): void {
   const perTick = 60 * BALANCE.ticksPerSecond;
   for (const player of state.players) {

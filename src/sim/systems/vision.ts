@@ -1,14 +1,9 @@
-import { BALANCE } from '../data';
+import { BALANCE, BUILDINGS } from '../data';
 import { tilesInRadius } from '../hex';
 import type { Building, GameState } from '../types';
 
 function buildingVision(b: Building): number {
-  switch (b.type) {
-    case 'camp':
-      return BALANCE.camp.visionRadius;
-    default:
-      return 1;
-  }
+  return BUILDINGS[b.type].visionRadius;
 }
 
 /** Recompute what each player currently sees. Territory is always in vision. */

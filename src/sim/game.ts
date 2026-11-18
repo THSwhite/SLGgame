@@ -3,6 +3,7 @@ import { applyCommand, type Command } from './commands';
 import { generateMap } from './mapgen';
 import { runFood } from './systems/food';
 import { runJobs } from './systems/jobs';
+import { runPopulation } from './systems/population';
 import { updateVision } from './systems/vision';
 import { Knowledge, type GameState } from './types';
 
@@ -41,6 +42,12 @@ export function createGame(setup: GameSetup): GameState {
       knowledge: new Array(tiles.length).fill(Knowledge.Unknown),
       visible: new Array(tiles.length).fill(0),
       atWar: false,
+      management: {
+        popIntervalSeconds: BALANCE.population.defaultIntervalSeconds,
+        popEnabled: true,
+        foodProtection: true,
+      },
+      popProgress: 0,
     })),
     villagers: [],
     buildings: [],
@@ -61,6 +68,7 @@ export function stepGame(state: GameState, commands: Command[] = []): Array<stri
   state.tick++;
   runJobs(state);
   runFood(state);
+  runPopulation(state);
   updateVision(state);
   return results;
 }
