@@ -4,6 +4,12 @@ import { createGame, stepGame, TEST_MAP_SEED } from '../sim/game';
 import type { GameState, PlayerId } from '../sim/types';
 
 export const SPEEDS = [0, 1, 2, 5] as const;
+export const MAX_AI = 3;
+const AI_NATIONS = [
+  { name: '藍月王國', color: '#1e88e5' },
+  { name: '綠野聯邦', color: '#43a047' },
+  { name: '金沙帝國', color: '#fdd835' },
+];
 export type Speed = (typeof SPEEDS)[number];
 
 export interface Selection {
@@ -27,11 +33,29 @@ export class GameController {
   private accumulator = 0;
   private listeners = new Set<() => void>();
 
-  constructor(seed = TEST_MAP_SEED) {
-    this.state = createGame({
+  constructor(seed = TEST_MAP_SEED, aiCount = 2) {
+    this.state = this.makeGame(seed, aiCount);
+  }
+
+  private makeGame(seed: number, aiCount: number): GameState {
+    return createGame({
       seed,
-      players: [{ name: '我的國家', color: '#e53935', isAI: false }],
+      players: [
+        { name: '我的國家', color: '#e53935', isAI: false },
+        ...AI_NATIONS.slice(0, aiCount).map((n) => ({ ...n, isAI: true })),
+      ],
     });
+  }
+
+  /** Before the start is chosen: restart with a different number of AI nations. */
+  setAICount(aiCount: number) {
+    if (this.state.phase !== 'choosingStart') return;
+    this.state = this.makeGame(this.state.seed, aiCount);
+    this.notify();
+  }
+
+  get aiCount(): number {
+    return this.state.players.filter((p) => p.isAI).length;
   }
 
   get tickMs(): number {

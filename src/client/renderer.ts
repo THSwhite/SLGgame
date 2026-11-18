@@ -312,6 +312,12 @@ export class MapRenderer {
         if (done && !active) g.circle(cx + 9, cy - 12, 4).fill(0x212121).stroke({ color: 0xffca28, width: 1.5 });
         break;
       }
+      case 'consulate':
+        g.rect(cx - 9, cy - 5, 18, 12).fill({ color: 0xfafafa, alpha }).stroke(line);
+        g.rect(cx - 9, cy - 8, 18, 3).fill({ color: 0x90a4ae, alpha }).stroke(line);
+        g.moveTo(cx + 9, cy - 8).lineTo(cx + 9, cy - 18).stroke({ color: 0x3e2723, width: 1.5, alpha });
+        g.rect(cx + 9, cy - 18, 8, 5).fill({ color: pc, alpha });
+        break;
       case 'research':
         g.rect(cx - 10, cy - 4, 20, 11).fill({ color: 0xe3f2fd, alpha }).stroke(line);
         g.poly([cx - 12, cy - 4, cx, cy - 13, cx + 12, cy - 4]).fill({ color: 0x5c6bc0, alpha }).stroke(line);

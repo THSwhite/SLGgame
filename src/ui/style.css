@@ -94,3 +94,19 @@ button.active { background: var(--accent); color: #1a1a1a; }
 .research-actions { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
 .research-actions .reason { color: #ffab91; font-size: 11px; }
 .group-name { color: var(--muted); margin: 6px 0 4px; }
+
+button.attention { background: #c62828; border-color: #ff8a80; }
+button.danger { border-color: #e57373; color: #ffcdd2; }
+.war-tag { color: #ff8a80; font-weight: 700; }
+.diplomacy-panel { top: 56px; left: 50%; transform: translateX(-50%); width: min(520px, calc(100% - 16px)); max-height: calc(100% - 72px); overflow: auto; z-index: 3; }
+.nation { border: 1px solid var(--border); border-radius: 6px; padding: 8px; margin-top: 8px; }
+.nation.unknown { display: flex; gap: 8px; align-items: center; opacity: 0.6; }
+.nation.status-war { border-color: #e57373; }
+.nation.status-allied { border-color: #81c784; }
+.nation-head { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.status-tag { margin-left: auto; font-size: 12px; padding: 1px 8px; border-radius: 10px; background: #37474f; }
+.tag-war { background: #b71c1c; }
+.tag-allied { background: #2e7d32; }
+.tag-establishing { background: #f57f17; color: #1a1a1a; }
+.proposal { background: rgba(255, 202, 40, 0.12); border-radius: 4px; padding: 6px; margin: 6px 0; }

@@ -9,6 +9,10 @@ import { runResearch } from './systems/research';
 import { updateTerritory } from './systems/territory';
 import { updateVision } from './systems/vision';
 import { Knowledge, type GameState } from './types';
+import { Rng } from './rng';
+import { makeRelations } from './systems/diplomacy';
+import { runDiplomacy } from './systems/diplomacy';
+import { runAI } from './ai/ai';
 
 export interface PlayerSetup {
   name: string;
@@ -27,6 +31,7 @@ export const TEST_MAP_SEED = 20261118;
 export function createGame(setup: GameSetup): GameState {
   const { width, height } = BALANCE.map;
   const tiles = generateMap(setup.seed, { width, height });
+  const personality = new Rng(setup.seed ^ 0x2545f491);
   return {
     seed: setup.seed,
     rngState: setup.seed ^ 0x5bd1e995,
@@ -55,12 +60,16 @@ export function createGame(setup: GameSetup): GameState {
       policies: [],
       currentResearch: null,
       researchPoints: 0,
+      ai: p.isAI
+        ? { aggression: personality.next(), openness: personality.next(), expansion: personality.next() }
+        : null,
     })),
     villagers: [],
     buildings: [],
     nextEntityId: 1,
     events: [],
     mapVersion: 0,
+    relations: makeRelations(setup.players.length),
   };
 }
 
@@ -79,6 +88,8 @@ export function stepGame(state: GameState, commands: Command[] = []): Array<stri
   runPopulation(state);
   runResearch(state);
   runLoyalty(state);
+  runDiplomacy(state);
+  runAI(state);
   updateVision(state);
   return results;
 }

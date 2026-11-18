@@ -3,6 +3,7 @@ import { neighbors } from './hex';
 import { getModifiers, type Modifiers } from './modifiers';
 import { getPlayer } from './state';
 import type { Building, GameState, Player, Villager } from './types';
+import { alliedCount, tradePerMinute } from './systems/diplomacy';
 
 export type Rates = Record<ResourceType, number>;
 
@@ -60,7 +61,9 @@ export function buildingRatePerWorker(state: GameState, b: Building): Rates {
 /** Research points per second produced by one worker (efficiency 1) at a building. */
 export function researchRatePerWorker(state: GameState, b: Building): number {
   const base = BUILDINGS[b.type].researchPerWorker ?? 0;
-  return base * getModifiers(getPlayer(state, b.owner)).researchRate;
+  // Exchange with allied nations speeds up research.
+  const exchange = 1 + BALANCE.diplomacy.exchangeResearchBonus * alliedCount(state, b.owner);
+  return base * getModifiers(getPlayer(state, b.owner)).researchRate * exchange;
 }
 
 export function workersAt(state: GameState, buildingId: number): Villager[] {
@@ -85,9 +88,9 @@ export function villagerRate(state: GameState, v: Villager): Rates {
   return out;
 }
 
-/** Current income per minute of a player, from villagers that are working right now. */
+/** Current income per minute of a player: working villagers plus trade. */
 export function incomePerMinute(state: GameState, player: Player): Rates {
-  const out = zeroRates();
+  const out = tradePerMinute(state, player.id);
   for (const v of state.villagers) {
     if (v.owner !== player.id) continue;
     const r = villagerRate(state, v);

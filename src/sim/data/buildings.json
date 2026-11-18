@@ -114,8 +114,7 @@
     "name": "研究所",
     "buildable": true,
     "cost": {
-      "wood": 60,
-      "stone": 20
+      "wood": 80
     },
     "buildSeconds": 25,
     "placement": "land",
@@ -126,6 +125,24 @@
     "workerSlots": 2,
     "production": {},
     "researchPerWorker": 0.2,
+    "trainingSlots": 0,
+    "garrisonSlots": 0
+  },
+  "consulate": {
+    "name": "領事館",
+    "buildable": true,
+    "cost": {
+      "wood": 40,
+      "stone": 20
+    },
+    "buildSeconds": 20,
+    "placement": "land",
+    "territory": "foreign",
+    "territoryRadius": 0,
+    "visionRadius": 2,
+    "popCap": 0,
+    "workerSlots": 0,
+    "production": {},
     "trainingSlots": 0,
     "garrisonSlots": 0
   }

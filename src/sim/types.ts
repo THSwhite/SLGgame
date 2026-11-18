@@ -57,6 +57,8 @@ export interface Building {
   tile: TileIndex;
   /** Construction progress 0..1; 1 means complete. */
   progress: number;
+  /** For consulates: the nation hosting it. */
+  host?: PlayerId;
 }
 
 /** Per-player settings from the management menu. */
@@ -91,6 +93,43 @@ export interface Player {
   currentResearch: string | null;
   /** Research points accumulated (spent when a research completes). */
   researchPoints: number;
+  /** Personality for AI players (0..1 each). */
+  ai: AIPersonality | null;
+}
+
+export interface AIPersonality {
+  aggression: number;
+  openness: number;
+  expansion: number;
+}
+
+/**
+ * Diplomatic relation between two nations.
+ * none -> (proposal accepted) -> establishing -> (both consulates built) -> allied
+ * establishing past its deadline -> none + cooldown. Any -> war (declaration).
+ */
+export type RelationStatus = 'none' | 'establishing' | 'allied' | 'war';
+
+export interface Proposal {
+  from: PlayerId;
+  kind: 'relations' | 'peace';
+  expires: number;
+}
+
+export interface Relation {
+  /** Lower player id. */
+  a: PlayerId;
+  /** Higher player id. */
+  b: PlayerId;
+  contact: boolean;
+  status: RelationStatus;
+  proposal: Proposal | null;
+  /** Tick by which both consulates must exist (status 'establishing'). */
+  deadline: number;
+  /** No new relations may be proposed before this tick. */
+  cooldownUntil: number;
+  /** Tick of the last status change. */
+  since: number;
 }
 
 export interface GameEvent {
@@ -116,4 +155,5 @@ export interface GameState {
   events: GameEvent[];
   /** Bumped when map knowledge/territory changes, so renderers can cache. */
   mapVersion: number;
+  relations: Relation[];
 }

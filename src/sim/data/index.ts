@@ -61,6 +61,16 @@ export interface Balance {
   /** How far outside own territory a non-territory building may be placed. */
   nonTerritoryBuildingMaxDistance: number;
   training: { seconds: number; foodCost: number; maxLevel: number };
+  diplomacy: {
+    proposalSeconds: number;
+    consulateDeadlineSeconds: number;
+    cooldownSeconds: number;
+    /** After a rejected proposal, wait this long before proposing again. */
+    rejectCooldownSeconds: number;
+    tradePerMinute: Record<ResourceType, number>;
+    exchangeResearchBonus: number;
+  };
+  ai: { thinkEverySeconds: number };
   loyalty: {
     max: number;
     start: number;
@@ -86,9 +96,10 @@ export interface BuildingDef {
   placement: 'land' | 'farmable';
   /**
    * Territory rule: 'connected' = territory building whose area must connect
-   * to existing territory; 'near' = may stand up to N tiles outside territory.
+   * to existing territory; 'near' = may stand up to N tiles outside territory;
+   * 'foreign' = must stand in the territory of a nation we have relations with.
    */
-  territory: 'none' | 'connected' | 'near';
+  territory: 'none' | 'connected' | 'near' | 'foreign';
   territoryRadius: number;
   visionRadius: number;
   popCap: number;

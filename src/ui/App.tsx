@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { GameController, SPEEDS, type Speed } from '../client/controller';
+import { GameController, MAX_AI, SPEEDS, type Speed } from '../client/controller';
 import { MapRenderer } from '../client/renderer';
 import { BALANCE, BUILDING_TYPES, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES, TERRAIN, type ResourceType } from '../sim/data';
 import { validateCommand } from '../sim/commands';
@@ -13,6 +13,7 @@ import {
 } from '../sim/economy';
 import { garrisonOf } from '../sim/systems/territory';
 import { ResearchPanel } from './ResearchPanel';
+import { DiplomacyPanel, pendingProposals } from './DiplomacyPanel';
 import { foodConsumptionPerMinute } from '../sim/systems/food';
 import { populationBlocked, populationCap, populationCount } from '../sim/systems/population';
 import { Knowledge, type GameState } from '../sim/types';
@@ -53,6 +54,7 @@ export function App() {
   const [, refresh] = useReducer((x: number) => x + 1, 0);
   const [showManagement, setShowManagement] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
+  const [showDiplomacy, setShowDiplomacy] = useState(false);
 
   useEffect(() => {
     const unsub = controller.subscribe(refresh);
@@ -103,6 +105,7 @@ export function App() {
       else if (e.key === '3') controller.setSpeed(5);
       else if (e.key === 'm' || e.key === 'M') setShowManagement((x) => !x);
       else if (e.key === 'r' || e.key === 'R') setShowResearch((x) => !x);
+      else if (e.key === 'd' || e.key === 'D') setShowDiplomacy((x) => !x);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -123,7 +126,9 @@ export function App() {
             state={s}
             onManagement={() => setShowManagement((x) => !x)}
             onResearch={() => setShowResearch((x) => !x)}
+            onDiplomacy={() => setShowDiplomacy((x) => !x)}
           />
+          {showDiplomacy && <DiplomacyPanel controller={controller} state={s} onClose={() => setShowDiplomacy(false)} />}
           {showResearch && <ResearchPanel controller={controller} state={s} onClose={() => setShowResearch(false)} />}
           {showManagement && <ManagementPanel controller={controller} state={s} onClose={() => setShowManagement(false)} />}
           <VillagerPanel controller={controller} state={s} onFocus={(t) => rendererRef.current?.centerOn(t)} />
@@ -144,6 +149,16 @@ function StartOverlay({ controller, onStarted }: { controller: GameController; o
       <h2>選擇起點</h2>
       <p>你只知道哪裡是陸地、哪裡是海洋。點選一塊陸地作為國家的起點。</p>
       <p className="hint">拖曳平移地圖，滾輪縮放</p>
+      <div className="row">
+        <span>AI 國家數量</span>
+        <span className="speeds">
+          {Array.from({ length: MAX_AI + 1 }, (_, n) => (
+            <button key={n} className={controller.aiCount === n ? 'active' : ''} onClick={() => controller.setAICount(n)}>
+              {n}
+            </button>
+          ))}
+        </span>
+      </div>
       <div className="row">
         <span>{tile === null ? '尚未選擇' : land ? `已選擇 (${tileLabel(s, tile)})` : '這裡是水域，請選擇陸地'}</span>
         <button
@@ -173,12 +188,15 @@ function TopBar({
   state,
   onManagement,
   onResearch,
+  onDiplomacy,
 }: {
   controller: GameController;
   state: GameState;
   onManagement: () => void;
   onResearch: () => void;
+  onDiplomacy: () => void;
 }) {
+  const pending = pendingProposals(state, controller.localPlayer);
   const me = state.players[controller.localPlayer];
   const income = incomePerMinute(state, me);
   const net: Record<ResourceType, number> = { ...income, food: income.food - foodConsumptionPerMinute(state, me) };
@@ -206,6 +224,10 @@ function TopBar({
       </div>
       <button onClick={onManagement}>管理 (M)</button>
       <button onClick={onResearch}>研究 (R)</button>
+      <button className={pending ? 'attention' : ''} onClick={onDiplomacy}>
+        外交 (D){pending > 0 && ` ●${pending}`}
+      </button>
+      {me.atWar && <span className="war-tag">⚔ 戰爭中</span>}
       <div className="spacer" />
       <div className="clock">⏱ {formatTime(state.tick)}</div>
       <div className="speeds">
@@ -343,7 +365,7 @@ function VillagerPanel({
       <div className="hint">
         左鍵：選取 ／ 右鍵：對選取的村民下指令（自己的建築→建造或工作、未探索→探索、有資源→採集、其他→移動）
         <br />
-        空白鍵：暫停 ／ 1 2 3：速度 ／ M：管理 ／ R：研究
+        空白鍵：暫停 ／ 1 2 3：速度 ／ M：管理 ／ R：研究 ／ D：外交
       </div>
     </div>
   );

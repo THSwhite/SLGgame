@@ -58,5 +58,21 @@
     "defectChancePerSecond": 0.02,
     "subvertRange": 5,
     "afterDefection": 60
+  },
+  "diplomacy": {
+    "proposalSeconds": 60,
+    "consulateDeadlineSeconds": 180,
+    "cooldownSeconds": 300,
+    "tradePerMinute": {
+      "food": 6,
+      "wood": 4,
+      "stone": 2,
+      "ore": 0
+    },
+    "exchangeResearchBonus": 0.1,
+    "rejectCooldownSeconds": 120
+  },
+  "ai": {
+    "thinkEverySeconds": 2
   }
 }

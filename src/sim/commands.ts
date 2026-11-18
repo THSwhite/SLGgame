@@ -5,6 +5,8 @@ import { findPath } from './pathfinding';
 import { getPlayer, logEvent, newVillager } from './state';
 import { connectsToTerritory, distanceToTerritory, isComplete, recomputeTerritory } from './systems/territory';
 import { researchBlocked } from './systems/research';
+import { breakRelations, consulateOf, getRelation, setStatus } from './systems/diplomacy';
+import { chooseAIStarts } from './ai/start';
 import { updateVision } from './systems/vision';
 import { Knowledge, type GameState, type Management, type Player, type PlayerId, type TileIndex, type Villager } from './types';
 
@@ -27,7 +29,16 @@ export type Command =
   | { type: 'setSoldier'; player: PlayerId; villager: number; soldier: boolean }
   | { type: 'garrison'; player: PlayerId; villager: number; building: number }
   /** Pick the tech or policy to research next (null clears it). */
-  | { type: 'setResearch'; player: PlayerId; research: string | null };
+  | { type: 'setResearch'; player: PlayerId; research: string | null }
+  | { type: 'diplomacy'; player: PlayerId; target: PlayerId; action: DiplomacyAction };
+
+export type DiplomacyAction =
+  | 'proposeRelations'
+  | 'proposePeace'
+  | 'accept'
+  | 'reject'
+  | 'breakRelations'
+  | 'declareWar';
 
 export const MIN_START_DISTANCE = 10;
 
@@ -54,6 +65,14 @@ export function validatePlacement(state: GameState, player: Player, tile: TileIn
   if (!t || !TERRAIN[t.terrain].land) return '只能蓋在陸地上';
   if (player.knowledge[tile] !== Knowledge.Explored) return '需要先探索該地塊';
   if (state.buildings.some((b) => b.tile === tile)) return '這裡已經有建築了';
+  if (def.territory === 'foreign') {
+    if (t.owner === -1 || t.owner === player.id) return `${def.name}必須蓋在建交對象的國土內`;
+    const rel = getRelation(state, player.id, t.owner);
+    if (rel.status !== 'establishing' && rel.status !== 'allied') return `需要先和 ${state.players[t.owner].name} 建交`;
+    if (consulateOf(state, player.id, t.owner)) return `已經在 ${state.players[t.owner].name} 設有領事館`;
+    if (!canAfford(player, def.cost)) return `資源不足（需要 ${costText(def.cost)}）`;
+    return null;
+  }
   if (t.owner !== -1 && t.owner !== player.id) return '這是其他國家的國土';
   if (def.placement === 'farmable' && !TERRAIN[t.terrain].farmable) return `${def.name}需要可耕作的土地（草地、泥地）`;
   if (def.territory === 'connected' && !connectsToTerritory(state, player.id, tile, def.territoryRadius)) {
@@ -65,6 +84,82 @@ export function validatePlacement(state: GameState, player: Player, tile: TileIn
   }
   if (!canAfford(player, def.cost)) return `資源不足（需要 ${costText(def.cost)}）`;
   return null;
+}
+
+function validateDiplomacy(state: GameState, me: PlayerId, target: PlayerId, action: DiplomacyAction): string | null {
+  if (target === me || !state.players[target]) return '無效的對象';
+  const rel = getRelation(state, me, target);
+  if (!rel.contact) return '尚未與對方接觸';
+  const p = rel.proposal;
+  switch (action) {
+    case 'proposeRelations':
+      if (rel.status !== 'none') return '目前狀態不能提議建交';
+      if (state.tick < rel.cooldownUntil) return '冷卻期內（邦交破裂或提議被拒絕後），暫時不能提議建交';
+      if (p) return '已經有待回覆的提議';
+      return null;
+    case 'proposePeace':
+      if (rel.status !== 'war') return '沒有處於戰爭狀態';
+      if (p) return '已經有待回覆的提議';
+      return null;
+    case 'accept':
+    case 'reject':
+      if (!p || p.from !== target) return '對方沒有提出提議';
+      return null;
+    case 'breakRelations':
+      if (rel.status !== 'establishing' && rel.status !== 'allied') return '目前沒有邦交';
+      return null;
+    case 'declareWar':
+      if (rel.status === 'war') return '已經處於戰爭狀態';
+      return null;
+  }
+}
+
+function applyDiplomacy(state: GameState, me: PlayerId, target: PlayerId, action: DiplomacyAction): void {
+  const rel = getRelation(state, me, target);
+  const myName = state.players[me].name;
+  const theirName = state.players[target].name;
+  const expires = state.tick + Math.round(BALANCE.diplomacy.proposalSeconds * BALANCE.ticksPerSecond);
+  switch (action) {
+    case 'proposeRelations':
+      rel.proposal = { from: me, kind: 'relations', expires };
+      logEvent(state, target, `${myName} 提議建立邦交`);
+      logEvent(state, me, `向 ${theirName} 提議建立邦交`);
+      return;
+    case 'proposePeace':
+      rel.proposal = { from: me, kind: 'peace', expires };
+      logEvent(state, target, `${myName} 提議停戰`);
+      logEvent(state, me, `向 ${theirName} 提議停戰`);
+      return;
+    case 'accept': {
+      const kind = rel.proposal!.kind;
+      if (kind === 'relations') {
+        setStatus(state, rel, 'establishing');
+        const msg = `建交成功！雙方需要在期限內在對方國土內建立領事館`;
+        logEvent(state, me, `與 ${theirName} ${msg}`);
+        logEvent(state, target, `與 ${myName} ${msg}`);
+      } else {
+        setStatus(state, rel, 'none');
+        logEvent(state, me, `與 ${theirName} 停戰`);
+        logEvent(state, target, `與 ${myName} 停戰`);
+      }
+      return;
+    }
+    case 'reject':
+      logEvent(state, target, `${myName} 拒絕了提議`);
+      if (rel.proposal!.kind === 'relations') {
+        rel.cooldownUntil = Math.max(rel.cooldownUntil, state.tick + Math.round(BALANCE.diplomacy.rejectCooldownSeconds * BALANCE.ticksPerSecond));
+      }
+      rel.proposal = null;
+      return;
+    case 'breakRelations':
+      breakRelations(state, rel, `${myName} 主動斷交`);
+      return;
+    case 'declareWar':
+      setStatus(state, rel, 'war');
+      logEvent(state, target, `⚔ ${myName} 向我們宣戰！`);
+      logEvent(state, me, `⚔ 向 ${theirName} 宣戰`);
+      return;
+  }
 }
 
 /** Returns an error message (zh-Hant) or null if the command is valid. */
@@ -97,6 +192,8 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
     if (cmd.research === null) return null;
     return researchBlocked(player, cmd.research);
   }
+
+  if (cmd.type === 'diplomacy') return validateDiplomacy(state, cmd.player, cmd.target, cmd.action);
 
   const v = ownVillager(state, cmd.player, cmd.villager);
   if (!v) return '找不到這位村民';
@@ -192,6 +289,10 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
 
   if (cmd.type === 'chooseStart') {
     startPlayer(state, cmd.player, cmd.tile);
+    // Once every human has chosen, AI nations pick their own starts.
+    if (state.players.every((pl) => pl.startTile !== -1 || pl.isAI)) {
+      for (const [ai, tile] of chooseAIStarts(state)) startPlayer(state, ai, tile);
+    }
     return null;
   }
 
@@ -201,6 +302,10 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
   }
   if (cmd.type === 'setResearch') {
     getPlayer(state, cmd.player).currentResearch = cmd.research;
+    return null;
+  }
+  if (cmd.type === 'diplomacy') {
+    applyDiplomacy(state, cmd.player, cmd.target, cmd.action);
     return null;
   }
 
@@ -226,7 +331,9 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
     const p = getPlayer(state, cmd.player);
     pay(p, BUILDINGS[cmd.building].cost);
     const id = state.nextEntityId++;
-    state.buildings.push({ id, type: cmd.building, owner: cmd.player, tile: cmd.tile, progress: 0 });
+    const building = { id, type: cmd.building, owner: cmd.player, tile: cmd.tile, progress: 0 } as GameState['buildings'][number];
+    if (BUILDINGS[cmd.building].territory === 'foreign') building.host = state.tiles[cmd.tile].owner as PlayerId;
+    state.buildings.push(building);
     state.mapVersion++;
     target = cmd.tile;
     v.order = { kind: 'construct', building: id };
