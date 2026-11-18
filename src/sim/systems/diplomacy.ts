@@ -98,6 +98,21 @@ export function breakRelations(state: GameState, rel: Relation, reason: string):
   logEvent(state, rel.b, `與 ${na} 的邦交破裂：${reason}`);
 }
 
+/** Copy every tile explored by one partner to the other (both directions). */
+export function shareExploration(state: GameState, rel: Relation): void {
+  const ka = getPlayer(state, rel.a).knowledge;
+  const kb = getPlayer(state, rel.b).knowledge;
+  let changed = false;
+  for (let i = 0; i < ka.length; i++) {
+    if (ka[i] === kb[i]) continue;
+    const k = Math.max(ka[i], kb[i]);
+    ka[i] = k;
+    kb[i] = k;
+    changed = true;
+  }
+  if (changed) state.mapVersion++;
+}
+
 function seesPlayer(state: GameState, viewer: PlayerId, target: PlayerId): boolean {
   const vis = getPlayer(state, viewer).visible;
   for (let i = 0; i < state.tiles.length; i++) if (vis[i] && state.tiles[i].owner === target) return true;
@@ -140,6 +155,12 @@ export function runDiplomacy(state: GameState): void {
       logEvent(state, rel.a, `與 ${pb.name} 的領事館遭到破壞，需要在期限內重建`);
       logEvent(state, rel.b, `與 ${pa.name} 的領事館遭到破壞，需要在期限內重建`);
     }
+  }
+
+  // Nations with relations share their exploration. Knowledge is never taken
+  // back, so what was learned survives a later break-up.
+  for (const rel of state.relations) {
+    if (rel.status === 'establishing' || rel.status === 'allied') shareExploration(state, rel);
   }
 
   // Trade income, once per second.

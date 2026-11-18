@@ -161,3 +161,50 @@ describe('diplomacy', () => {
     expect(rel.status).toBe('establishing');
   });
 });
+
+describe('shared exploration and consulate vision', () => {
+  it('relations share exploration both ways, and it is kept after a break-up', () => {
+    const s = withAI(1);
+    scripted(s);
+    const [p0, p1] = s.players;
+    const only1 = p1.knowledge.map((k, i) => (k === 1 && p0.knowledge[i] === 0 ? i : -1)).filter((i) => i >= 0);
+    const only0 = p0.knowledge.map((k, i) => (k === 1 && p1.knowledge[i] === 0 ? i : -1)).filter((i) => i >= 0);
+    expect(only1.length).toBeGreaterThan(0);
+    const rel = getRelation(s, 0, 1);
+    rel.contact = true;
+    diplo(s, 0, 1, 'proposeRelations');
+    diplo(s, 1, 0, 'accept');
+    expect(only1.every((i) => p0.knowledge[i] === 1)).toBe(true);
+    expect(only0.every((i) => p1.knowledge[i] === 1)).toBe(true);
+
+    // Exploration made while related keeps flowing.
+    const later = p1.knowledge.findIndex((k, i) => k === 0 && TERRAIN[s.tiles[i].terrain].land);
+    p1.knowledge[later] = 1;
+    run(s, 1);
+    expect(p0.knowledge[later]).toBe(1);
+
+    diplo(s, 0, 1, 'breakRelations');
+    expect(rel.status).toBe('none');
+    run(s, 2);
+    expect(only1.every((i) => p0.knowledge[i] === 1)).toBe(true);
+    // ...but new discoveries are no longer shared.
+    const after = p1.knowledge.findIndex((k, i) => k === 0 && TERRAIN[s.tiles[i].terrain].land);
+    p1.knowledge[after] = 1;
+    run(s, 2);
+    expect(p0.knowledge[after]).toBe(0);
+  });
+
+  it('a consulate gives its owner vision around it', () => {
+    const s = withAI(1);
+    scripted(s);
+    const rel = getRelation(s, 0, 1);
+    rel.contact = true;
+    diplo(s, 0, 1, 'proposeRelations');
+    diplo(s, 1, 0, 'accept');
+    const inP1 = s.tiles.findIndex((t, i) => t.owner === 1 && hexDistance(s, i, s.players[1].startTile) === 2);
+    s.buildings.push({ id: 998, type: 'consulate', owner: 0, tile: inP1, progress: 1, host: 1, hp: 100 });
+    run(s, 1);
+    const near = s.tiles.findIndex((_, i) => hexDistance(s, i, inP1) === 2);
+    expect(s.players[0].visible[near]).toBe(1);
+  });
+});

@@ -5,7 +5,7 @@ import { findPath } from './pathfinding';
 import { getPlayer, logEvent, newVillager } from './state';
 import { connectsToTerritory, distanceToTerritory, isComplete, recomputeTerritory } from './systems/territory';
 import { researchBlocked } from './systems/research';
-import { breakRelations, consulateOf, getRelation, setStatus } from './systems/diplomacy';
+import { breakRelations, consulateOf, getRelation, setStatus, shareExploration } from './systems/diplomacy';
 import { chooseAIStarts } from './ai/start';
 import { updateVision } from './systems/vision';
 import { Knowledge, type GameState, type Management, type Player, type PlayerId, type TileIndex, type Villager } from './types';
@@ -139,7 +139,8 @@ function applyDiplomacy(state: GameState, me: PlayerId, target: PlayerId, action
       const kind = rel.proposal!.kind;
       if (kind === 'relations') {
         setStatus(state, rel, 'establishing');
-        const msg = `建交成功！雙方需要在期限內在對方國土內建立領事館`;
+        const msg = `建交成功！雙方開始共享地圖探索資訊；需要在期限內在對方國土內建立領事館`;
+        shareExploration(state, rel);
         logEvent(state, me, `與 ${theirName} ${msg}`);
         logEvent(state, target, `與 ${myName} ${msg}`);
       } else {

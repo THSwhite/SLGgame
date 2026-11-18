@@ -79,6 +79,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Soldiers: level ≥ 2, cannot gather/work/build/train. Training is uninterruptible once paid.
 - Loyalty decays when unsupervised; defection = subverted by nearest foreign territory within range, else leaves.
 - Diplomacy statuses: none → establishing (deadline; both consulates needed) → allied; war; cooldowns. `setStatus` keeps `player.atWar` in sync and removes consulates on none/war.
+- While establishing/allied, `shareExploration` merges both nations' `knowledge` every second (and once on accept). Knowledge is never reset, so it survives a break-up. Consulates give their owner vision (`visionRadius` 2).
 - Combat only between nations with relation status `war`; `attack` command refuses tiles of nations not at war.
 - Elimination: no villagers or no complete territory building. Victory: conquest / territory share / time limit (score `nationScore`).
 
