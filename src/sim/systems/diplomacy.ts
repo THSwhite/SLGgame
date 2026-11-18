@@ -145,8 +145,9 @@ export function runDiplomacy(state: GameState): void {
     if (rel.status === 'establishing') {
       if (both) {
         setStatus(state, rel, 'allied');
-        logEvent(state, rel.a, `與 ${pb.name} 互設領事館，建立正式邦交`);
-        logEvent(state, rel.b, `與 ${pa.name} 互設領事館，建立正式邦交`);
+        shareExploration(state, rel);
+        logEvent(state, rel.a, `與 ${pb.name} 互設領事館，建立正式邦交，開始共享地圖探索`);
+        logEvent(state, rel.b, `與 ${pa.name} 互設領事館，建立正式邦交，開始共享地圖探索`);
       } else if (state.tick >= rel.deadline) {
         breakRelations(state, rel, '期限內沒有互設領事館');
       }
@@ -157,10 +158,10 @@ export function runDiplomacy(state: GameState): void {
     }
   }
 
-  // Nations with relations share their exploration. Knowledge is never taken
-  // back, so what was learned survives a later break-up.
+  // Formal allies (both consulates built) share their exploration. Knowledge is
+  // never taken back, so what was learned survives a later break-up.
   for (const rel of state.relations) {
-    if (rel.status === 'establishing' || rel.status === 'allied') shareExploration(state, rel);
+    if (rel.status === 'allied') shareExploration(state, rel);
   }
 
   // Trade income, once per second.

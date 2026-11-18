@@ -79,6 +79,8 @@ export interface Balance {
     roughTerrainDefense: number;
     garrisonDefense: number;
     plunderShare: number;
+    /** Damage multiplier when a soldier supports a battle on an adjacent tile. */
+    supportDamageMultiplier: number;
   };
   victory: { territoryShare: number; timeLimitMinutes: number };
   mapSizes: Record<string, { width: number; height: number; name: string }>;

@@ -1,5 +1,6 @@
 import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES } from '../data';
 import { getModifiers } from '../modifiers';
+import { neighbors } from '../hex';
 import { getPlayer, logEvent, maxVillagerHp } from '../state';
 import type { Building, GameState, PlayerId, Villager } from '../types';
 import { atWarWith } from './diplomacy';
@@ -61,25 +62,40 @@ export function runCombat(state: GameState): void {
 
   const vDamage = new Map<Villager, { amount: number; by: PlayerId }>();
   const bDamage = new Map<Building, { amount: number; by: PlayerId }>();
+  const fighting = new Set<number>();
+  const hit = (v: Villager, tile: number, atk: number): boolean => {
+    const { villagers, buildings } = enemiesOnTile(state, v.owner, tile);
+    const target = villagers[0];
+    if (target) {
+      const prev = vDamage.get(target)?.amount ?? 0;
+      vDamage.set(target, { amount: prev + atk / defenseMultiplier(state, target), by: v.owner });
+    } else if (v.soldier && buildings[0]) {
+      const b = buildings[0];
+      const prev = bDamage.get(b)?.amount ?? 0;
+      bDamage.set(b, { amount: prev + atk, by: v.owner });
+    } else {
+      return false;
+    }
+    fighting.add(tile);
+    return true;
+  };
+  /** Our nation is involved in a fight on this tile (own unit or building there). */
+  const ourBattle = (owner: PlayerId, tile: number) =>
+    (byTile.get(tile) ?? []).some((x) => x.owner === owner) || state.buildings.some((b) => b.tile === tile && b.owner === owner);
+
   for (const [tile, vs] of byTile) {
-    let fought = false;
     for (const v of vs) {
-      const { villagers, buildings } = enemiesOnTile(state, v.owner, tile);
       const atk = attackPerSecond(state, v) / tps;
-      const target = villagers[0];
-      if (target) {
-        const prev = vDamage.get(target)?.amount ?? 0;
-        vDamage.set(target, { amount: prev + atk / defenseMultiplier(state, target), by: v.owner });
-        fought = true;
-      } else if (v.soldier && buildings[0]) {
-        const b = buildings[0];
-        const prev = bDamage.get(b)?.amount ?? 0;
-        bDamage.set(b, { amount: prev + atk, by: v.owner });
-        fought = true;
+      if (hit(v, tile, atk)) continue;
+      // Support: a stationary soldier with no enemy on its own tile helps a
+      // battle our nation is fighting on one of the 6 adjacent tiles.
+      if (!v.soldier || v.path.length > 0) continue;
+      for (const n of neighbors(state, tile)) {
+        if (ourBattle(v.owner, n) && hit(v, n, atk * BALANCE.combat.supportDamageMultiplier)) break;
       }
     }
-    if (fought) state.combatTiles.push(tile);
   }
+  state.combatTiles = [...fighting].sort((a, b) => a - b);
 
   const dead = new Set<Villager>();
   for (const [v, d] of vDamage) {

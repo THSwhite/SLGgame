@@ -24,7 +24,7 @@ export function DiplomacyPanel({ controller, state, onClose }: { controller: Gam
       </div>
       <div className="hint">
         建交後，雙方要在 {BALANCE.diplomacy.consulateDeadlineSeconds} 秒內各自在對方國土內蓋好領事館（選村民 → 點對方國土 → 建造領事館），
-        否則邦交破裂，並有 {BALANCE.diplomacy.cooldownSeconds} 秒冷卻期。建交期間雙方共享地圖探索（斷交後仍保留），領事館提供周圍視野；正式邦交另外帶來貿易收入與研究交流。攻擊別國前必須先宣戰。
+        否則邦交破裂，並有 {BALANCE.diplomacy.cooldownSeconds} 秒冷卻期。領事館提供周圍視野。正式邦交帶來共享地圖探索（斷交後仍保留）、貿易收入與研究交流。攻擊別國前必須先宣戰。
         勝利條件：消滅所有國家、控制 {Math.round(BALANCE.victory.territoryShare * 100)}% 的陸地，或在 {BALANCE.victory.timeLimitMinutes} 分鐘時國力最強。
       </div>
       {others.length === 0 && <div className="hint">這局沒有其他國家。</div>}

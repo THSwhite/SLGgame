@@ -16,6 +16,7 @@ import { garrisonOf } from '../sim/systems/territory';
 import { enemiesOnTile } from '../sim/systems/combat';
 import { getRelation } from '../sim/systems/diplomacy';
 import { EndOverlay } from './EndOverlay';
+import { useGameAudio, SoundButton } from './Sound';
 import type { NetGameController } from '../client/net';
 import { ResearchPanel } from './ResearchPanel';
 import { DiplomacyPanel, pendingProposals } from './DiplomacyPanel';
@@ -79,6 +80,7 @@ export function Game({ controller, onExit }: { controller: GameController; onExi
   const [showManagement, setShowManagement] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
   const [showDiplomacy, setShowDiplomacy] = useState(false);
+  useGameAudio(controller);
 
   useEffect(() => {
     const unsub = controller.subscribe(refresh);
@@ -293,6 +295,7 @@ function TopBar({
           </button>
         ))}
       </div>
+      <SoundButton />
       <button
         onClick={() => {
           if (window.confirm(controller.isNetwork ? '確定要離開這場多人遊戲嗎？你的國家會改由 AI 接手。' : '確定要回到主選單嗎？目前的遊戲不會保存。')) onExit();

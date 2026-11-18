@@ -138,3 +138,6 @@ input { background: #1b2430; color: var(--text); border: 1px solid var(--border)
 .lobby-players li { padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; gap: 6px; align-items: center; }
 .tag { font-size: 11px; background: #37474f; padding: 0 6px; border-radius: 8px; }
 .desync { top: 56px; left: 50%; transform: translateX(-50%); background: #b71c1c; z-index: 5; }
+
+.sound { position: relative; }
+.sound-panel { top: 36px; right: 0; width: 220px; z-index: 6; }

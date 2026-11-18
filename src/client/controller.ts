@@ -39,6 +39,8 @@ export class GameController {
   selection: Selection = { villager: null, tile: null, group: [] };
   options: GameOptions;
   lastError: string | null = null;
+  /** UI hook (sound effects): called after every locally issued command. */
+  onIssue: ((cmd: Command, error: string | null) => void) | null = null;
 
   protected pending: Command[] = [];
   protected accumulator = 0;
@@ -96,6 +98,7 @@ export class GameController {
       if (this.state.phase === 'choosingStart') stepGame(this.state, [cmd]);
       else this.pending.push(cmd);
     }
+    this.onIssue?.(cmd, error);
     this.notify();
     return error;
   }

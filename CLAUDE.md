@@ -52,6 +52,8 @@ src/client/
   controller.ts          GameController: real time → ticks, command queue, speed, selection (villager/tile/group), newGame(options)
   net.ts                 NetClient (lobby/WebSocket) + NetGameController (overrides issue/update/setSpeed; driven by server 'step')
   renderer.ts            PixiJS MapRenderer: tile layer cached by state.mapVersion; units/buildings/overlay redrawn per frame
+  audio.ts               music playlists (public/audio/music, CC0, see public/audio/CREDITS.md) + Web Audio synthesized SFX; client-only
+src/ui/Sound.tsx         useGameAudio(controller): SFX via controller.onIssue + relation-status watcher, music mood; SoundButton
 src/net/protocol.ts      ClientMessage/ServerMessage types, NATIONS, constants
 src/net/hash.ts          stateHash(state) — FNV-1a of a state summary (desync detection)
 src/ui/                  React: Root (menu/lobby) → Game (App.tsx) + panels (Research, Diplomacy, EndOverlay), describe.ts (status text)
@@ -79,8 +81,9 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Soldiers: level ≥ 2, cannot gather/work/build/train. Training is uninterruptible once paid.
 - Loyalty decays when unsupervised; defection = subverted by nearest foreign territory within range, else leaves.
 - Diplomacy statuses: none → establishing (deadline; both consulates needed) → allied; war; cooldowns. `setStatus` keeps `player.atWar` in sync and removes consulates on none/war.
-- While establishing/allied, `shareExploration` merges both nations' `knowledge` every second (and once on accept). Knowledge is never reset, so it survives a break-up. Consulates give their owner vision (`visionRadius` 2).
+- While allied (both consulates built), `shareExploration` merges both nations' `knowledge` every second (and once when becoming allied). Knowledge is never reset, so it survives a break-up. Consulates give their owner vision (`visionRadius` 2).
 - Combat only between nations with relation status `war`; `attack` command refuses tiles of nations not at war.
+- Support: a stationary soldier with no enemy on its tile hits an enemy on an adjacent tile where its nation is fighting (own unit/building present), at `combat.supportDamageMultiplier`; supporters are not hit back.
 - Elimination: no villagers or no complete territory building. Victory: conquest / territory share / time limit (score `nationScore`).
 
 ## How to add things
@@ -116,6 +119,11 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Building jobs (farm/mine/lumber) never deplete, so workers never go idle on their own; the AI's `rebalance()` pulls one worker per think for houses, unattended sites, missing wood producers or big surpluses. Keep that in mind when adding new infinite jobs.
 - Validation of stale/queued commands (see above). Lobby has no reconnect.
 - `server/server.ts` duplicates `NATIONS`/constants from `src/net/protocol.ts` so it runs with plain `node`; keep both in sync.
+
+## Audio
+- Never play sounds from `src/sim`. UI hooks: `GameController.onIssue(cmd, error)` (set by `useGameAudio`) and a 250 ms watcher on the local player's relations.
+- Browsers need a user gesture first: `audio.unlock()` is called from the menu buttons.
+- New music: add files to `public/audio/music/`, list them in `PLAYLISTS` in `audio.ts`, and credit them in `public/audio/CREDITS.md` (prefer CC0). Re-encode to ~128 kbps (`ffmpeg -i in.mp3 -map_metadata -1 -b:a 128k out.mp3`) to keep the repo small.
 
 ## Conventions
 - Commit messages: imperative summary + bullet list; development branch per session as instructed by the environment.

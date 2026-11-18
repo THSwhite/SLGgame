@@ -163,7 +163,7 @@ describe('diplomacy', () => {
 });
 
 describe('shared exploration and consulate vision', () => {
-  it('relations share exploration both ways, and it is kept after a break-up', () => {
+  it('formal allies share exploration both ways, and it is kept after a break-up', () => {
     const s = withAI(1);
     scripted(s);
     const [p0, p1] = s.players;
@@ -174,6 +174,16 @@ describe('shared exploration and consulate vision', () => {
     rel.contact = true;
     diplo(s, 0, 1, 'proposeRelations');
     diplo(s, 1, 0, 'accept');
+    // Establishing is not enough: nothing is shared yet.
+    run(s, 2);
+    expect(only1.some((i) => p0.knowledge[i] === 1)).toBe(false);
+    // Both consulates built -> allied -> shared.
+    const c0 = s.tiles.findIndex((t) => t.owner === 1);
+    const c1 = s.tiles.findIndex((t) => t.owner === 0);
+    s.buildings.push({ id: 990, type: 'consulate', owner: 0, tile: c0, progress: 1, host: 1, hp: 100 });
+    s.buildings.push({ id: 991, type: 'consulate', owner: 1, tile: c1, progress: 1, host: 0, hp: 100 });
+    run(s, 2);
+    expect(rel.status).toBe('allied');
     expect(only1.every((i) => p0.knowledge[i] === 1)).toBe(true);
     expect(only0.every((i) => p1.knowledge[i] === 1)).toBe(true);
 

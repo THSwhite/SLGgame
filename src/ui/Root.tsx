@@ -4,6 +4,7 @@ import { defaultServerUrl, NetClient } from '../client/net';
 import { BALANCE } from '../sim/data';
 import { MAX_PLAYERS } from '../net/protocol';
 import { Game } from './App';
+import { audio } from '../client/audio';
 
 type Screen =
   | { kind: 'menu' }
@@ -55,7 +56,10 @@ export function Root() {
   }
   return (
     <Menu
-      onSingle={() => setScreen({ kind: 'single', controller: new GameController({ seed: randomSeed() }) })}
+      onSingle={() => {
+        audio.unlock();
+        setScreen({ kind: 'single', controller: new GameController({ seed: randomSeed() }) });
+      }}
       onOnline={(client) => setScreen({ kind: 'lobby', client })}
     />
   );
@@ -67,6 +71,7 @@ function Menu({ onSingle, onOnline }: { onSingle: () => void; onOnline: (c: NetC
   const [code, setCode] = useState('');
   const connect = (action: (c: NetClient) => void) => {
     saveName(name);
+    audio.unlock();
     const c = new NetClient(url);
     action(c);
     onOnline(c);

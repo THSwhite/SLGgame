@@ -181,3 +181,35 @@ describe('AI at war', () => {
     expect(hexDistance(s, target, s.players[0].startTile)).toBeLessThanOrEqual(3);
   });
 });
+
+describe('support from adjacent tiles', () => {
+  function setup(withAlly: boolean) {
+    const s = twoNations();
+    war(s);
+    const battle = neutralTile(s);
+    const side = s.tiles.findIndex(
+      (t, i) => TERRAIN[t.terrain].land && t.terrain !== 'forest' && t.terrain !== 'mud' && hexDistance(s, i, battle) === 1,
+    );
+    const enemy = soldier(s, 1, battle);
+    const supporter = soldier(s, 0, side);
+    if (withAlly) newVillager(s, 0, battle); // a civilian of ours is in the fight
+    return { s, enemy, supporter };
+  }
+
+  it('a soldier next to a battle we are in deals reduced damage there, without being hit', () => {
+    const { s, enemy, supporter } = setup(true);
+    const before = enemy.hp;
+    stepGame(s);
+    const civ = BALANCE.combat.civilianAttack * BALANCE.villagerLevels['1'].workEfficiency;
+    const sup = BALANCE.combat.soldierAttack * BALANCE.villagerLevels['2'].workEfficiency * BALANCE.combat.supportDamageMultiplier;
+    expect(before - enemy.hp).toBeCloseTo((civ + sup) / BALANCE.ticksPerSecond, 6);
+    expect(supporter.hp).toBe(BALANCE.combat.hp['2']);
+  });
+
+  it('does not attack across tiles when we are not part of that battle', () => {
+    const { s, enemy } = setup(false);
+    const before = enemy.hp;
+    run(s, 2);
+    expect(enemy.hp).toBe(before);
+  });
+});

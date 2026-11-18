@@ -85,7 +85,8 @@
     "regenPerSecond": 1,
     "roughTerrainDefense": 0.2,
     "garrisonDefense": 0.5,
-    "plunderShare": 0.5
+    "plunderShare": 0.5,
+    "supportDamageMultiplier": 0.5
   },
   "victory": {
     "territoryShare": 0.4,

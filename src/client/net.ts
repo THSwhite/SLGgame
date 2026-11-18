@@ -136,6 +136,7 @@ export class NetGameController extends GameController {
     const error = validateCommand(this.state, cmd);
     this.lastError = error;
     if (!error) this.client.send({ t: 'cmd', cmd });
+    this.onIssue?.(cmd, error);
     this.notify();
     return error;
   }
