@@ -2,6 +2,7 @@ import terrainJson from './terrain.json';
 import balanceJson from './balance.json';
 import buildingsJson from './buildings.json';
 import techJson from './tech.json';
+import techBranchesJson from './techBranches.json';
 import policiesJson from './policies.json';
 
 export type ResourceType = 'food' | 'wood' | 'stone' | 'ore';
@@ -106,6 +107,15 @@ export interface Balance {
     /** No new nations once this many exist (the city is simply lost instead). */
     maxNations: number;
   };
+  naval: {
+    /** Movement cost of a water tile (land costs come from terrain.json). */
+    seaMoveCost: number;
+    /** Tech that lets units put to sea from own harbors. */
+    sailTech: string;
+    /** Tech that unlocks training navy at harbors. */
+    navyTech: string;
+    navy: { trainSeconds: number; cost: Partial<Record<ResourceType, number>>; attack: number; hp: number };
+  };
   /** Names/colors for nations founded by independent cities. */
   independentNations: Array<{ name: string; color: string }>;
   conquest: {
@@ -149,7 +159,8 @@ export interface BuildingDef {
   cost: Partial<Record<ResourceType, number>>;
   buildSeconds: number;
   /** Terrain requirement: any land, or farmable land only. */
-  placement: 'land' | 'farmable';
+  /** 'coastal' = land next to water (ports). */
+  placement: 'land' | 'farmable' | 'coastal';
   /**
    * Territory rule: 'connected' = territory building whose area must connect
    * to existing territory; 'near' = may stand up to N tiles outside territory;
@@ -188,6 +199,12 @@ export interface BuildingDef {
   minVillagersNearby?: number;
   /** Storage capacity per resource (capitals, branch cities, warehouses). */
   storage?: number;
+  /** Tech that must be researched before this can be built. */
+  requiresTech?: string;
+  /** Ships leave from / dock at this building (ports). */
+  harbor?: boolean;
+  /** How many soldiers can train as navy here at once. */
+  navalTrainingSlots?: number;
 }
 
 export const BUILDINGS = buildingsJson as Record<BuildingType, BuildingDef>;
@@ -198,12 +215,17 @@ export type Effects = Record<string, number>;
 
 export interface TechDef {
   name: string;
+  /** Column in the tech tree (see techBranches.json). */
+  branch: string;
+  /** Row (1 = first). Each tech requires the previous one in its branch. */
+  tier: number;
   cost: number;
   requires: string[];
   description: string;
   effects: Effects;
 }
 export const TECHS = techJson as Record<string, TechDef>;
+export const TECH_BRANCHES = techBranchesJson as Array<{ id: string; name: string }>;
 
 export interface PolicyDef {
   name: string;

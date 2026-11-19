@@ -2,7 +2,8 @@ import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES } from '../data';
 import { getModifiers } from '../modifiers';
 import { deposit } from '../storage';
 import { neighbors } from '../hex';
-import { getPlayer, logEvent, maxVillagerHp } from '../state';
+import { getPlayer, logEvent, unitMaxHp } from '../state';
+import { isWater } from '../pathfinding';
 import type { Building, GameState, PlayerId, Villager } from '../types';
 import { atWarWith } from './diplomacy';
 import { addDevastation, annex, isSeat } from './conquest';
@@ -13,6 +14,7 @@ const ROUGH = new Set(['forest', 'mud']);
 export function defenseMultiplier(state: GameState, v: Villager): number {
   const mods = getModifiers(getPlayer(state, v.owner));
   const c = BALANCE.combat;
+  if (v.naval) return mods.navalDefense;
   let d = v.soldier ? mods.soldierDefense : 1;
   if (ROUGH.has(state.tiles[v.tile].terrain)) d *= 1 + c.roughTerrainDefense + (v.soldier ? mods.roughTerrainDefense : 0);
   if (v.order.kind === 'garrison' && v.path.length === 0) d *= 1 + c.garrisonDefense;
@@ -23,6 +25,7 @@ export function defenseMultiplier(state: GameState, v: Villager): number {
 export function attackPerSecond(state: GameState, v: Villager): number {
   const c = BALANCE.combat;
   const body = BALANCE.villagerLevels[String(v.level)].workEfficiency;
+  if (v.naval) return BALANCE.naval.navy.attack * body * getModifiers(getPlayer(state, v.owner)).navalAttack;
   if (!v.soldier) return c.civilianAttack * body;
   return c.soldierAttack * body * getModifiers(getPlayer(state, v.owner)).soldierAttack;
 }
@@ -66,6 +69,8 @@ export function runCombat(state: GameState): void {
   const bDamage = new Map<Building, { amount: number; by: PlayerId }>();
   const fighting = new Set<number>();
   const hit = (v: Villager, tile: number, atk: number): boolean => {
+    // Only navy can fight at sea: nobody else attacks from a ship or into the water.
+    if (!v.naval && (isWater(state, v.tile) || isWater(state, tile))) return false;
     const { villagers, buildings } = enemiesOnTile(state, v.owner, tile);
     const target = villagers[0];
     if (target) {
@@ -158,7 +163,7 @@ export function runCombat(state: GameState): void {
   if (state.tick % tps === 0) {
     const fighting = new Set(state.combatTiles);
     for (const v of state.villagers) {
-      const max = maxVillagerHp(v.level);
+      const max = unitMaxHp(v);
       if (v.hp < max && !fighting.has(v.tile) && state.tiles[v.tile].owner === v.owner) {
         v.hp = Math.min(max, v.hp + BALANCE.combat.regenPerSecond);
       }

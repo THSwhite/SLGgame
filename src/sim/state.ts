@@ -32,6 +32,7 @@ export function newVillager(state: GameState, owner: PlayerId, tile: TileIndex):
     loyalty: BALANCE.loyalty.start,
     resentment: 0,
     cargo: null,
+    naval: false,
     hp: BALANCE.combat.hp['1'],
   };
   state.villagers.push(v);
@@ -40,6 +41,11 @@ export function newVillager(state: GameState, owner: PlayerId, tile: TileIndex):
 
 export function maxVillagerHp(level: number): number {
   return BALANCE.combat.hp[String(level)] ?? BALANCE.combat.hp['1'];
+}
+
+/** Max HP of a unit (navy has its own). */
+export function unitMaxHp(v: Villager): number {
+  return v.naval ? BALANCE.naval.navy.hp : maxVillagerHp(v.level);
 }
 
 export function makePlayer(

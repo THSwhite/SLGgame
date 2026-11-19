@@ -1,6 +1,7 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { activityIcon } from '../ui/describe';
-import { BALANCE, BUILDINGS, TERRAIN, type ResourceType } from '../sim/data';
+import { unitMaxHp } from '../sim/state';
+import { BUILDINGS, TERRAIN, type ResourceType } from '../sim/data';
 import { colOf, inBounds, neighborInDir, rowOf, toIndex } from '../sim/hex';
 import { Knowledge, type Building, type GameState } from '../sim/types';
 import type { GameController } from './controller';
@@ -299,6 +300,14 @@ export class MapRenderer {
         g.rect(cx - 9, cy - 4, 18, 12).fill({ color: 0xf5e6c8, alpha }).stroke(line);
         g.poly([cx - 12, cy - 4, cx, cy - 14, cx + 12, cy - 4]).fill({ color: pc, alpha }).stroke(line);
         break;
+      case 'port':
+        // Pier on posts with an anchor flag.
+        g.rect(cx - 12, cy + 2, 24, 5).fill({ color: 0x8d6e63, alpha }).stroke(line);
+        for (const px of [-9, -2, 5]) g.rect(cx + px, cy + 7, 3, 5).fill({ color: 0x5d4037, alpha });
+        g.rect(cx - 6, cy - 7, 12, 9).fill({ color: 0xd7ccc8, alpha }).stroke(line);
+        g.poly([cx - 8, cy - 7, cx, cy - 13, cx + 8, cy - 7]).fill({ color: 0x1565c0, alpha }).stroke(line);
+        g.circle(cx + 10, cy - 9, 3).fill({ color: pc, alpha });
+        break;
       case 'warehouse':
         g.rect(cx - 11, cy - 5, 22, 13).fill({ color: 0xa1887f, alpha }).stroke(line);
         g.poly([cx - 13, cy - 5, cx, cy - 12, cx + 13, cy - 5]).fill({ color: 0x6d4c41, alpha }).stroke(line);
@@ -420,12 +429,22 @@ export class MapRenderer {
       this.placeIcon(state, v, x, y, seen);
       if (selected) g.circle(x, y, 8.5).stroke({ color: 0xffffff, width: 2.5 });
       const color = hex(state.players[v.owner].color);
-      if (v.soldier) {
+      const atSea = !TERRAIN[state.tiles[v.tile].terrain].land;
+      if (v.naval) {
+        // Warship: hull + sail in the nation's colour.
+        g.poly([x - 9, y + 1, x + 9, y + 1, x + 6, y + 6, x - 6, y + 6]).fill(0x5d4037).stroke({ color: 0xffffff, width: 1.2 });
+        g.poly([x - 1, y - 9, x - 1, y + 1, x - 8, y + 1]).fill(color).stroke({ color: 0xffffff, width: 1 });
+        g.poly([x + 1, y - 7, x + 1, y + 1, x + 7, y + 1]).fill(color).stroke({ color: 0xffffff, width: 1 });
+      } else if (atSea) {
+        // Passengers ride a small boat.
+        g.poly([x - 8, y + 3, x + 8, y + 3, x + 5, y + 8, x - 5, y + 8]).fill(0x8d6e63).stroke({ color: 0x3e2723, width: 1 });
+        g.circle(x, y - 1, 4.5).fill(color).stroke({ color: v.soldier ? 0xffffff : 0x1a1a1a, width: 1.5 });
+      } else if (v.soldier) {
         g.poly([x, y - 7, x + 7, y, x, y + 7, x - 7, y]).fill(color).stroke({ color: 0xffffff, width: 1.5 });
       } else {
         g.circle(x, y, v.level >= 2 ? 6.5 : 6).fill(color).stroke({ color: v.level >= 2 ? 0xffd54f : 0x1a1a1a, width: 1.5 });
       }
-      const maxHp = BALANCE.combat.hp[String(v.level)];
+      const maxHp = unitMaxHp(v);
       if (v.hp < maxHp) {
         g.rect(x - 7, y + 8, 14, 2.5).fill(0x222222);
         g.rect(x - 7, y + 8, 14 * Math.max(0, v.hp / maxHp), 2.5).fill(0xef5350);

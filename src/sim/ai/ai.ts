@@ -181,7 +181,7 @@ class Brain {
     const { aggression, openness } = this.ai;
     const order = ['agriculture', 'tools', 'writing'];
     order.push(aggression > 0.5 ? 'warEconomy' : 'recuperate');
-    order.push('forestry', 'masonry', 'mining', 'irrigation', 'drill');
+    order.push('forestry', 'masonry', 'mining', 'irrigation', 'drill', 'shipping', 'administration');
     order.push(aggression > 0.66 ? 'heavy' : aggression > 0.33 ? 'light' : 'guerrilla');
     order.push(openness > 0.5 ? 'openDoor' : 'isolation');
     order.push(...Object.keys(TECHS));
@@ -236,11 +236,32 @@ class Brain {
     return [...new Set(tiles)].sort((a, b) => hexDistance(state, a, from) - hexDistance(state, b, from) || a - b);
   }
 
+  /** Train a couple of warships when possible and send them after enemies seen at sea. */
+  private navalWar(enemies: Set<number>) {
+    const { state, me } = this;
+    const port = this.buildings.find((b) => isComplete(b) && (BUILDINGS[b.type].navalTrainingSlots ?? 0) > 0);
+    if (!port) return;
+    const navies = this.villagers.filter((v) => v.naval);
+    const inTraining = this.villagers.some((v) => v.order.kind === 'train' && v.order.navy);
+    if (me.researched.includes(BALANCE.naval.navyTech) && navies.length < 2 && !inTraining) {
+      const recruit = this.villagers.find((v) => v.soldier && !v.naval && v.level >= 2 && v.order.kind === 'idle');
+      if (recruit) this.issue({ type: 'trainNavy', player: me.id, villager: recruit.id, building: port.id });
+    }
+    const prey = state.villagers
+      .filter((v) => enemies.has(v.owner) && me.visible[v.tile] && !TERRAIN[state.tiles[v.tile].terrain].land)
+      .sort((a, b) => hexDistance(state, a.tile, port.tile) - hexDistance(state, b.tile, port.tile) || a.id - b.id)[0];
+    for (const ship of navies) {
+      if (ship.order.kind !== 'idle' || ship.path.length > 0) continue;
+      if (prey) this.issue({ type: 'attack', player: me.id, villager: ship.id, tile: prey.tile });
+    }
+  }
+
   private war() {
     const { state, me } = this;
     const enemies = new Set(relationsOf(state, me.id).filter((r) => r.status === 'war').map((r) => other(r, me.id)));
     // The field army: every soldier not stationed in a tower.
-    const army = this.villagers.filter((v) => v.soldier && v.order.kind !== 'garrison');
+    this.navalWar(enemies);
+    const army = this.villagers.filter((v) => v.soldier && !v.naval && v.order.kind !== 'garrison');
     const idle = army.filter((v) => v.order.kind === 'idle' && v.path.length === 0);
     if (idle.length === 0) return;
     const send = (tile: number, who: Villager[]) => {
@@ -450,6 +471,11 @@ class Brain {
       };
       const candidates = state.tiles.map((_, i) => i).filter((i) => me.knowledge[i] === Knowledge.Explored && score(i) > 0);
       if (candidates.length && this.place(v, 'city', score, candidates)) return true;
+    }
+
+    // 6c. A port once shipping is known, so the nation can reach other shores.
+    if (me.researched.includes(BALANCE.naval.sailTech) && this.count('port') === 0 && !this.hasSite('port') && pop >= 10) {
+      if (this.place(v, 'port', (t) => -hexDistance(state, t, me.startTile))) return true;
     }
 
     // 7. Watchtowers push the border furthest (radius 3) once soldiers can man them.

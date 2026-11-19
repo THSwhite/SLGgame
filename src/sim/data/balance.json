@@ -180,5 +180,18 @@
     "incomeFactorPerTile": 0.08,
     "deliverySecondsPerTile": 1.5,
     "carryCapacity": 50
+  },
+  "naval": {
+    "seaMoveCost": 0.8,
+    "sailTech": "shipping",
+    "navyTech": "shipwright",
+    "navy": {
+      "trainSeconds": 40,
+      "cost": {
+        "wood": 60
+      },
+      "attack": 8,
+      "hp": 150
+    }
   }
 }

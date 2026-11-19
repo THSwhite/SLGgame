@@ -29,6 +29,10 @@ export function villagerStatus(state: GameState, v: Villager): string {
       return travelling ? `前往${name}` : `在${name}工作`;
     }
     case 'train':
+      if (o.navy) {
+        if (travelling) return '前往港口';
+        return o.paid ? `訓練海軍 ${Math.floor(o.progress * 100)}%` : '等待造船木材';
+      }
       if (travelling) return '前往兵營';
       return o.paid ? `訓練中 ${Math.floor(o.progress * 100)}%` : '等待訓練糧食';
     case 'garrison':
@@ -70,7 +74,7 @@ export function activityIcon(state: GameState, v: Villager): string {
     case 'idle':
       return '';
     case 'move':
-      return '🚶';
+      return TERRAIN[state.tiles[v.tile].terrain].land ? '🚶' : '⛵';
     case 'explore':
       return '🔍';
     case 'gather':

@@ -1,8 +1,8 @@
-import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES, TERRAIN, type BuildingType, type ResourceType } from './data';
+import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES, TECHS, TERRAIN, type BuildingType, type ResourceType } from './data';
 import { canAfford, workersAt } from './economy';
 import { deposit, fillStore, initStore, withdraw } from './storage';
-import { hexDistance, tilesInRadius } from './hex';
-import { findPath } from './pathfinding';
+import { hexDistance, neighbors, tilesInRadius } from './hex';
+import { findPath, isWater, pathOpts } from './pathfinding';
 import { getPlayer, logEvent, newVillager } from './state';
 import { connectsToTerritory, distanceToTerritory, isComplete, recomputeTerritory } from './systems/territory';
 import { researchBlocked } from './systems/research';
@@ -37,6 +37,8 @@ export type Command =
   | { type: 'attack'; player: PlayerId; villager: number; tile: TileIndex }
   /** Carry one resource (up to the carry capacity) from one own store to another. */
   | { type: 'transport'; player: PlayerId; villager: number; from: number; to: number; resource: ResourceType; amount: number }
+  /** Train an LV2 soldier into navy at an own harbor (requires the navy tech). */
+  | { type: 'trainNavy'; player: PlayerId; villager: number; building: number }
   /** System command (multiplayer server only): a player disconnected, AI takes over. */
   | { type: 'playerLeft'; player: PlayerId };
 
@@ -82,7 +84,9 @@ export function validatePlacement(state: GameState, player: Player, tile: TileIn
     return null;
   }
   if (t.owner !== -1 && t.owner !== player.id) return '這是其他國家的國土';
+  if (def.requiresTech && !player.researched.includes(def.requiresTech)) return `需要先研究「${TECHS[def.requiresTech]?.name ?? def.requiresTech}」`;
   if (def.placement === 'farmable' && !TERRAIN[t.terrain].farmable) return `${def.name}需要可耕作的土地（草地、泥地）`;
+  if (def.placement === 'coastal' && !neighbors(state, tile).some((n) => isWater(state, n))) return `${def.name}只能蓋在海邊`;
   if (def.forbiddenTerrain?.includes(t.terrain)) return `${def.name}不能蓋在${TERRAIN[t.terrain].name}上`;
   if (def.territory === 'connected' && !connectsToTerritory(state, player.id, tile, def.territoryRadius)) {
     return '國土建築必須與現有國土相連';
@@ -222,6 +226,7 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
   if (cmd.type === 'stop') return null;
 
   if (cmd.type === 'setSoldier') {
+    if (v.naval) return '海軍無法解除士兵身分';
     if (cmd.soldier && !BALANCE.villagerLevels[String(v.level)].canEnlist) return 'LV1 村民不能從軍，請先到兵營訓練';
     return null;
   }
@@ -230,9 +235,24 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
     cmd.type === 'gather' || cmd.type === 'work' || cmd.type === 'placeBuilding' || cmd.type === 'train' || cmd.type === 'transport';
   if (v.soldier && productive) return '士兵不能從事生產工作（可以先解除士兵身分）';
   if (!v.soldier && cmd.type === 'garrison') return '只有士兵可以駐守';
+  if (v.naval && (cmd.type === 'garrison' || cmd.type === 'explore' || cmd.type === 'trainNavy')) {
+    return cmd.type === 'trainNavy' ? '已經是海軍了' : '海軍只能在水上行動';
+  }
+  if (cmd.type === 'trainNavy') {
+    if (!v.soldier || v.level < 2) return '只有 LV2 士兵可以訓練成海軍';
+    if (!player.researched.includes(BALANCE.naval.navyTech)) return `需要先研究「${TECHS[BALANCE.naval.navyTech]?.name}」`;
+    const b = state.buildings.find((x) => x.id === cmd.building);
+    if (!b || b.owner !== cmd.player || !isComplete(b) || !BUILDINGS[b.type].navalTrainingSlots) return '只能在自己的港口訓練海軍';
+    const slots = BUILDINGS[b.type].navalTrainingSlots!;
+    const busy = state.villagers.filter((x) => x.id !== v.id && x.order.kind === 'train' && x.order.building === b.id).length;
+    if (busy >= slots) return `訓練名額已滿（${slots} 人）`;
+    if (!canAfford(player, BALANCE.naval.navy.cost)) return `資源不足（需要 ${costText(BALANCE.naval.navy.cost)}）`;
+    if (findPath(state, v.tile, b.tile, pathOpts(v)) === null) return '無法抵達該地塊';
+    return null;
+  }
   if (!v.soldier && cmd.type === 'attack') return '只有士兵可以進攻';
   if (cmd.type === 'attack') {
-    if (!isLand(state, cmd.tile)) return '只能前往陸地';
+    if (!v.naval && !isLand(state, cmd.tile)) return '一般士兵無法在海上攻擊，需要海軍';
     const foreign = new Set<PlayerId>();
     for (const x of state.villagers) if (x.tile === cmd.tile && x.owner !== cmd.player) foreign.add(x.owner);
     for (const b of state.buildings) if (b.tile === cmd.tile && b.owner !== cmd.player) foreign.add(b.owner);
@@ -241,7 +261,7 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
     if ([...foreign].some((f) => getRelation(state, cmd.player, f).status !== 'war') && ![...foreign].some((f) => getRelation(state, cmd.player, f).status === 'war')) {
       return '不能攻擊沒有宣戰的國家，請先宣戰';
     }
-    if (findPath(state, v.tile, cmd.tile) === null) return '無法抵達該地塊';
+    if (findPath(state, v.tile, cmd.tile, pathOpts(v)) === null) return '無法抵達該地塊';
     return null;
   }
 
@@ -253,7 +273,7 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
     if (from!.id === to!.id) return '起點和終點不能相同';
     if (!(cmd.amount > 0)) return '運送數量必須大於 0';
     if ((from!.store![cmd.resource] ?? 0) < 1) return `起點沒有${RESOURCE_NAMES[cmd.resource]}`;
-    if (findPath(state, v.tile, from!.tile) === null || findPath(state, from!.tile, to!.tile) === null) return '無法抵達';
+    if (findPath(state, v.tile, from!.tile, pathOpts(v)) === null || findPath(state, from!.tile, to!.tile, pathOpts(v)) === null) return '無法抵達';
     return null;
   }
 
@@ -261,7 +281,7 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
     const b = state.buildings.find((x) => x.id === cmd.building);
     if (!b || b.owner !== cmd.player) return '找不到這棟建築';
     if (!isComplete(b)) return '建築還沒蓋好';
-    if (findPath(state, v.tile, b.tile) === null) return '無法抵達該地塊';
+    if (findPath(state, v.tile, b.tile, pathOpts(v)) === null) return '無法抵達該地塊';
     const def = BUILDINGS[b.type];
     if (cmd.type === 'train') {
       if (def.trainingSlots === 0) return `${def.name}不能訓練`;
@@ -279,7 +299,7 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
   if (cmd.type === 'work') {
     const b = state.buildings.find((x) => x.id === cmd.building);
     if (!b || b.owner !== cmd.player) return '找不到這棟建築';
-    if (findPath(state, v.tile, b.tile) === null) return '無法抵達該地塊';
+    if (findPath(state, v.tile, b.tile, pathOpts(v)) === null) return '無法抵達該地塊';
     if (!isComplete(b)) return null;
     const slots = BUILDINGS[b.type].workerSlots;
     if (slots === 0) return `${BUILDINGS[b.type].name}不需要工作人員`;
@@ -291,12 +311,14 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
   if (cmd.type === 'placeBuilding') {
     const err = validatePlacement(state, player, cmd.tile, cmd.building);
     if (err) return err;
-    if (findPath(state, v.tile, cmd.tile) === null) return '無法抵達該地塊';
+    if (findPath(state, v.tile, cmd.tile, pathOpts(v)) === null) return '無法抵達該地塊';
     return null;
   }
 
-  if (!isLand(state, cmd.tile)) return '只能前往陸地';
-  if (findPath(state, v.tile, cmd.tile) === null) return '無法抵達該地塊';
+  if (!v.naval && !isLand(state, cmd.tile)) return '只能前往陸地（研究「航運」並建造港口後可以出海）';
+  if (findPath(state, v.tile, cmd.tile, pathOpts(v)) === null) {
+    return v.naval ? '海軍只能在水上和自己的港口行動' : '無法抵達該地塊（被水域隔開時需要港口與航運）';
+  }
 
   switch (cmd.type) {
     case 'explore':
@@ -410,6 +432,10 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
     target = from.tile;
     const amount = Math.min(cmd.amount, BALANCE.transport.carryCapacity);
     v.order = { kind: 'transport', from: cmd.from, to: cmd.to, resource: cmd.resource, amount, stage: 'pickup' };
+  } else if (cmd.type === 'trainNavy') {
+    const b = state.buildings.find((x) => x.id === cmd.building)!;
+    target = b.tile;
+    v.order = { kind: 'train', building: b.id, progress: 0, paid: false, navy: true };
   } else if (cmd.type === 'train' || cmd.type === 'garrison') {
     const b = state.buildings.find((x) => x.id === cmd.building)!;
     target = b.tile;
@@ -427,7 +453,7 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
 
   // Finish the step in progress before re-routing, so units never teleport.
   const from = v.moveProgress > 0 && v.path.length > 0 ? v.path[0] : v.tile;
-  const rest = findPath(state, from, target) ?? [];
+  const rest = findPath(state, from, target, pathOpts(v)) ?? [];
   v.path = from === v.tile ? rest : [from, ...rest];
 
   switch (cmd.type) {
@@ -440,6 +466,7 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
       v.order = { kind: 'attack', target: cmd.tile };
       break;
     case 'transport':
+    case 'trainNavy':
       break;
     case 'explore':
       v.order = { kind: 'explore', target: cmd.tile, progress: 0 };

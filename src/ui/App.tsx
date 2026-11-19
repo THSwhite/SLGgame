@@ -40,6 +40,11 @@ function smartOne(c: GameController, vid: number, tile: number): string | null {
   const building = s.buildings.find((b) => b.tile === tile && b.owner === me.id);
   const def = building ? BUILDINGS[building.type] : null;
   const p = me.id;
+  if (villager.naval) {
+    const { villagers } = enemiesOnTile(s, me.id, tile);
+    if (villagers.length) return c.issue({ type: 'attack', player: p, villager: vid, tile });
+    return c.issue({ type: 'move', player: p, villager: vid, tile });
+  }
   if (villager.soldier) {
     const { villagers, buildings } = enemiesOnTile(s, me.id, tile);
     const owner = s.tiles[tile].owner;
@@ -64,12 +69,15 @@ function smartOne(c: GameController, vid: number, tile: number): string | null {
 function smartCommand(c: GameController, tile: number) {
   const targets = c.orderTargets;
   if (targets.length === 0) return;
-  if (!TERRAIN[c.state.tiles[tile].terrain].land) {
-    c.lastError = '只能前往陸地';
-    c.notify();
-    return;
-  }
-  const errors = targets.map((id) => smartOne(c, id, tile)).filter((e): e is string => e !== null);
+  const water = !TERRAIN[c.state.tiles[tile].terrain].land;
+  const errors = targets
+    .map((id) => {
+      const v = c.state.villagers.find((x) => x.id === id);
+      // Only navy can be ordered onto the water.
+      if (water && !v?.naval) return '只能前往陸地（要渡海請把目的地設在對岸，並先建造港口）';
+      return smartOne(c, id, tile);
+    })
+    .filter((e): e is string => e !== null);
   if (errors.length) {
     c.lastError = errors[0];
     c.notify();
@@ -396,11 +404,11 @@ function SelectedVillager({ controller, state }: { controller: GameController; s
   return (
     <div className="selected-villager">
       <div>
-        村民 #{v.id}：LV{v.level}　{v.soldier ? '士兵' : '平民'}　忠誠度 {Math.floor(v.loyalty)}
+        村民 #{v.id}：LV{v.level}　{v.naval ? '海軍' : v.soldier ? '士兵' : '平民'}　忠誠度 {Math.floor(v.loyalty)}
         {v.resentment >= 1 && <span className="neg">　怨恨 {Math.ceil(v.resentment)}（忠誠上限 {Math.floor(100 - v.resentment)}）</span>}
       </div>
       <div className="actions">
-        {v.soldier ? (
+        {v.naval ? null : v.soldier ? (
           <button onClick={() => controller.issue({ type: 'setSoldier', player: v.owner, villager: v.id, soldier: false })}>解除士兵</button>
         ) : (
           <button
@@ -471,7 +479,7 @@ function VillagerPanel({
           onDoubleClick={() => onFocus(v.tile)}
         >
           <span>
-            {v.soldier ? '⚔' : ''}#{v.id} <small>LV{v.level}</small>
+            {v.naval ? '⚓' : v.soldier ? '⚔' : ''}#{v.id} <small>LV{v.level}</small>
             {v.loyalty < 60 && <small className={v.loyalty < 30 ? 'neg' : 'warn'}> 忠誠{Math.floor(v.loyalty)}</small>}
           </span>
           <span className="status">{villagerStatus(state, v)}</span>
@@ -580,6 +588,13 @@ function BuildingInfo({ controller, state, tile }: { controller: GameController;
           </button>
         </div>
       )}
+      {mine && vid !== null && b.progress >= 1 && (def.navalTrainingSlots ?? 0) > 0 && state.villagers.some((v) => v.id === vid && v.soldier && !v.naval) && (
+        <div className="actions">
+          <button onClick={() => controller.issue({ type: 'trainNavy', player: controller.localPlayer, villager: vid, building: b.id })}>
+            把士兵 #{vid} 訓練為海軍（木材 {BALANCE.naval.navy.cost.wood}、{BALANCE.naval.navy.trainSeconds} 秒）
+          </button>
+        </div>
+      )}
       {mine && vid !== null && b.progress >= 1 && def.garrisonSlots > 0 && (
         <div className="actions">
           <button onClick={() => controller.issue({ type: 'garrison', player: controller.localPlayer, villager: vid, building: b.id })}>
@@ -664,6 +679,15 @@ function TilePanel({ controller, state }: { controller: GameController; state: G
       {def.land && !explored && <div className="hint">需要派村民探索（{BALANCE.exploreSeconds} 秒）才能得知資源。</div>}
       <BuildingInfo controller={controller} state={state} tile={tile} />
       <UnitsOnTile state={state} me={me.id} tile={tile} />
+      {villager?.naval && !def.land && (
+        <div className="actions">
+          <div className="hint">對海軍 #{villager.id} 下令：</div>
+          <button onClick={() => controller.issue({ type: 'move', player: me.id, villager: villager.id, tile })}>航行到這裡</button>
+          <button className="danger" onClick={() => controller.issue({ type: 'attack', player: me.id, villager: villager.id, tile })}>
+            進攻
+          </button>
+        </div>
+      )}
       {villager && def.land && (
         <div className="actions">
           <div className="hint">對村民 #{villager.id} 下令：</div>

@@ -81,6 +81,7 @@ npm install        # 第一次執行前，安裝套件
 | `ai.thinkEverySeconds` | AI 多久做一次決定 | 2 |
 | `combat` | 士兵／平民的攻擊力、各等級生命值、恢復速度、地形與駐守的防禦加成、掠奪比例、支援作戰的傷害倍率（`supportDamageMultiplier`）、佔領後建築剩下的生命比例（`captureHpShare`） | 支援 0.5、佔領 0.3，其他見檔案 |
 | `victory` | `territorySchedule`：從第幾分鐘起、領土達到多少比例即獲勝（取最新一階）；`timeLimitMinutes`：時間到時領土最多者獲勝 | 20 分 80%、30 分 70%、40 分 60%、50 分 50%；60 分鐘 |
+| `naval` | 航運與海軍：海上每格移動耗費（`seaMoveCost`）、解鎖出海的科技（`sailTech`）、解鎖海軍的科技（`navyTech`）、海軍的訓練秒數／成本／攻擊力／生命值 | 0.8、航運、造艦、40 秒／木材 60／8／150 |
 | `transport` | 物流：工作地點離最近倉儲每遠 1 格，收入的折減係數（收入 × 1 ÷ (1 + 係數 × 距離)）；建造物資每格的運送秒數；運送村民一次能搬多少 | 0.08、1.5 秒、50 |
 
 ### 3.2 `buildings.json`：建築
@@ -93,7 +94,7 @@ npm install        # 第一次執行前，安裝套件
 | `buildable` | 玩家能不能建造（營地是 false） |
 | `cost` | 成本，例如 `{ "wood": 60, "stone": 10 }` |
 | `buildSeconds` | 建造時間（1 位村民、效率 1 的情況） |
-| `placement` | `"land"` 任何陸地 ／ `"farmable"` 只能蓋在可耕作地 |
+| `placement` | `"land"` 任何陸地 ／ `"farmable"` 只能蓋在可耕作地 ／ `"coastal"` 只能蓋在海邊（相鄰有水域的陸地） |
 | `forbiddenTerrain` | 不能蓋在哪些地形上，例如伐木場的 `["stone"]` |
 | `territory` | `"connected"` 國土建築，範圍必須和現有國土相連 ／ `"near"` 國土內或國土外幾格內 ／ `"foreign"` 蓋在建交對象的國土內（領事館）／ `"free"` 任何不屬於別國的已探索土地，不需要相連（分城）／ `"none"` |
 | `maxOutsideDistance` | 只對 `"near"` 有效，覆蓋預設的「國土外幾格」 |
@@ -112,6 +113,8 @@ npm install        # 第一次執行前，安裝套件
 | `hp` | 生命值 |
 | `minVillagersNearby` | 建造時，建築所在格和相鄰 6 格內至少要有幾位自己的村民，工程才會推進（分城 3） |
 | `storage` | 倉儲容量（每種資源的上限）。主城 600、分城 400、倉庫 500；有這個欄位的建築才能存放資源 |
+| `requiresTech` | 需要先研究哪項科技才能建造（港口：`shipping` 航運） |
+| `harbor` / `navalTrainingSlots` | 港口：可以從這裡出海／同時訓練幾艘海軍 |
 | `capturable` | 戰爭中被打到 0 血時是「佔領」（`true`，建築變成攻擊方的）還是「摧毀」（`false`，例如領事館） |
 
 > **新增一種建築**：只改 JSON 不夠。還需要在 `src/client/renderer.ts` 的 `drawBuilding` 加上它的圖案；如果它有特殊效果，也要寫程式。可以直接請 Claude Code 幫忙。
@@ -122,7 +125,8 @@ npm install        # 第一次執行前，安裝套件
 
 **森林的多寡**由 `src/sim/mapgen.ts` 開頭的 `GROVE_THRESHOLD` 控制（0～1，數字越小，零星小樹林越多；目前是 0.72）。
 
-### 3.4 `tech.json`：科技樹
+### 3.4 `tech.json`：科技樹（線性）
+科技分成幾條路線（`techBranches.json`：農業、工業、建設、軍事、社會、航海），每項科技有 `branch`（路線）和 `tier`（第幾階），而且必須先研究同一路線的上一階（`requires`）。研究面板會照路線和階層排列。
 ```json
 "agriculture": { "name": "農耕技術", "cost": 40, "requires": [], "description": "農田產量 +25%", "effects": { "farmRate": 0.25 } }
 ```
@@ -152,6 +156,7 @@ npm install        # 第一次執行前，安裝套件
 | `subversionResist` | 被策反時抵抗成功的機率 |
 | `consulateDeadline` / `tradeIncome` | 領事館期限 / 貿易收入 |
 | `plunder` | 掠奪倍率 |
+| `navalAttack` / `navalDefense` | 海軍攻擊 / 防禦 |
 
 > 想加入**新的效果名稱**：要在 `modifiers.ts` 加上預設值，並在使用它的地方寫程式。
 

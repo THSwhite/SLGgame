@@ -2,7 +2,8 @@ import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES } from '../data';
 import { buildingRatePerWorker, gatherRate, researchRatePerWorker, workEfficiency, workersAt } from '../economy';
 import { getModifiers } from '../modifiers';
 import { deposit as depositGoods, depositTarget, refreshStock, storeSpace, transportFactor, withdraw } from '../storage';
-import { findPath } from '../pathfinding';
+import { findPath, pathOpts } from '../pathfinding';
+import { canAfford } from '../economy';
 import { moveCost } from '../pathfinding';
 import { getPlayer, logEvent, maxVillagerHp } from '../state';
 import { Knowledge, type Building, type GameState, type Villager } from '../types';
@@ -147,11 +148,28 @@ function stepVillager(state: GameState, v: Villager): void {
     }
     case 'train': {
       const b = findBuilding(state, order.building, v.owner);
-      if (!b || !isComplete(b) || v.level >= BALANCE.training.maxLevel) {
+      if (!b || !isComplete(b) || (!order.navy && v.level >= BALANCE.training.maxLevel)) {
         v.order = { kind: 'idle' };
         return;
       }
       const player = getPlayer(state, v.owner);
+      if (order.navy) {
+        // Shipbuilding at a harbor: pay for the ship, then train the crew.
+        const navy = BALANCE.naval.navy;
+        if (!order.paid) {
+          if (!canAfford(player, navy.cost)) return;
+          withdraw(state, v.owner, b.tile, navy.cost);
+          order.paid = true;
+        }
+        order.progress += getModifiers(player).trainSpeed / (navy.trainSeconds * tps);
+        if (order.progress >= 1) {
+          v.naval = true;
+          v.hp = navy.hp;
+          v.order = { kind: 'idle' };
+          logEvent(state, v.owner, `士兵 #${v.id} 成為海軍，可以在海上作戰`);
+        }
+        return;
+      }
       if (!order.paid) {
         // Wait at the barracks until the food for training is available.
         if (player.stock.food < BALANCE.training.foodCost) return;
@@ -185,7 +203,7 @@ function stepVillager(state: GameState, v: Villager): void {
         refreshStock(state, getPlayer(state, v.owner));
         v.cargo = { resource: order.resource, amount };
         order.stage = 'deliver';
-        v.path = findPath(state, v.tile, to.tile) ?? [];
+        v.path = findPath(state, v.tile, to.tile, pathOpts(v)) ?? [];
         return;
       }
       // Delivering: unload into the destination (overflow / lost destination: nearest other store).

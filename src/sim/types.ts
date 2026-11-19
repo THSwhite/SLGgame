@@ -30,8 +30,8 @@ export type VillagerOrder =
   | { kind: 'gather'; target: TileIndex; resource: ResourceType }
   | { kind: 'construct'; building: number }
   | { kind: 'work'; building: number }
-  /** Training at a barracks. Food is paid on arrival; cannot be interrupted once started. */
-  | { kind: 'train'; building: number; progress: number; paid: boolean }
+  /** Training at a barracks (LV up) or, with `navy`, at a harbor (becomes navy). Paid on arrival; cannot be interrupted once started. */
+  | { kind: 'train'; building: number; progress: number; paid: boolean; navy?: boolean }
   | { kind: 'garrison'; building: number }
   /** Soldiers march to a tile and fight whatever enemy is there. */
   | { kind: 'attack'; target: TileIndex }
@@ -54,6 +54,8 @@ export interface Villager {
   loyalty: number;
   /** 0..100. Grudge from being conquered; caps loyalty at 100 - resentment and fades slowly. */
   resentment: number;
+  /** Navy: moves only on water and own harbors; the only unit that can fight at sea. */
+  naval: boolean;
   /** Goods being carried (transport). Whoever kills the carrier takes them. */
   cargo: { resource: ResourceType; amount: number } | null;
   hp: number;

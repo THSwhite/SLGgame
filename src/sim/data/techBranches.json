@@ -1,0 +1,26 @@
+[
+  {
+    "id": "agriculture",
+    "name": "農業"
+  },
+  {
+    "id": "industry",
+    "name": "工業"
+  },
+  {
+    "id": "construction",
+    "name": "建設"
+  },
+  {
+    "id": "military",
+    "name": "軍事"
+  },
+  {
+    "id": "society",
+    "name": "社會"
+  },
+  {
+    "id": "navigation",
+    "name": "航海"
+  }
+]

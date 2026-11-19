@@ -26,6 +26,8 @@ export const DEFAULT_MODIFIERS = {
   soldierSpeed: 1,
   soldierAttack: 1,
   soldierDefense: 1,
+  navalAttack: 1,
+  navalDefense: 1,
   roughTerrainDefense: 0,
   soldierLoyaltyImmune: 0,
   subversionResist: 0,

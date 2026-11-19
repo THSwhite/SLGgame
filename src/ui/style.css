@@ -83,17 +83,40 @@ button.active { background: var(--accent); color: #1a1a1a; }
 
 .warn { color: #ffb74d; }
 .selected-villager { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
-.research-panel { top: 56px; left: 50%; transform: translateX(-50%); width: min(640px, calc(100% - 16px)); max-height: calc(100% - 72px); overflow: auto; z-index: 3; }
-.research-panel h3 { font-size: 13px; margin: 12px 0 6px; color: var(--accent); }
-.research-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
-.research-item { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
-.research-item.done { opacity: 0.55; }
-.research-item.selected { border-color: var(--accent); background: rgba(255, 202, 40, 0.1); }
-.research-head { display: flex; justify-content: space-between; gap: 6px; }
-.research-head .cost { color: var(--muted); font-size: 12px; }
-.research-actions { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
-.research-actions .reason { color: #ffab91; font-size: 11px; }
-.group-name { color: var(--muted); margin: 6px 0 4px; }
+.research-panel { top: 56px; left: 50%; transform: translateX(-50%); width: min(1100px, calc(100% - 16px)); max-height: calc(100% - 72px); overflow: auto; z-index: 3;
+  background: linear-gradient(180deg, rgba(38, 33, 25, 0.96), rgba(22, 20, 17, 0.96)); border-color: #6d5a3a; }
+.research-panel .tabs { display: flex; gap: 4px; margin-right: auto; margin-left: 12px; }
+.research-status { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; margin-bottom: 8px; }
+.research-status .progress { flex-basis: 100%; }
+.tech-tree { display: grid; gap: 0 10px; align-items: stretch; overflow-x: auto; }
+.branch-head { text-align: center; font-weight: 700; color: #e8c77a; padding: 6px 4px; border-bottom: 2px solid #6d5a3a; margin-bottom: 6px; }
+.branch-icon { font-size: 16px; }
+.tier-label { color: #b9a77f; font-size: 12px; writing-mode: horizontal-tb; display: flex; align-items: center; justify-content: center; border-right: 1px dashed #5a4a30; }
+.tech-cell { position: relative; padding-top: 18px; }
+.tech-cell .connector { position: absolute; top: 0; left: 50%; width: 3px; height: 18px; transform: translateX(-50%); background: #4a4030; }
+.tech-cell .connector.lit { background: #c9a44c; }
+.tech-node { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; padding: 6px 8px; border-radius: 4px;
+  border: 1px solid #5a4a30; background: #2c271f; color: var(--text); position: relative; min-height: 74px; }
+.tech-node .tech-name { font-weight: 700; }
+.tech-node .tech-cost { font-size: 11px; color: #b9a77f; }
+.tech-node .tech-desc { font-size: 11px; color: var(--muted); line-height: 1.35; }
+.tech-node.done { background: #24402a; border-color: #5d9b62; opacity: 1; }
+.tech-node.done .tech-cost { color: #a5d6a7; }
+.tech-node.current { background: #4a3d16; border-color: #ffca28; box-shadow: 0 0 0 1px #ffca28 inset; }
+.tech-node.available { border-color: #c9a44c; cursor: pointer; }
+.tech-node.available:hover { background: #3b3324; }
+.tech-node.locked { opacity: 0.45; }
+.tech-node:disabled { cursor: default; }
+.tech-progress { display: block; height: 4px; background: #222; border-radius: 2px; margin-top: 4px; overflow: hidden; }
+.tech-progress span { display: block; height: 100%; background: #ffca28; }
+.policies .policy-group { margin-bottom: 10px; }
+.policy-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.legend { margin-top: 10px; font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.legend .dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; border: 1px solid #5a4a30; }
+.legend .dot.done { background: #24402a; border-color: #5d9b62; }
+.legend .dot.current { background: #4a3d16; border-color: #ffca28; }
+.legend .dot.available { background: #2c271f; border-color: #c9a44c; }
+.legend .dot.locked { background: #2c271f; opacity: 0.45; }
 
 button.attention { background: #c62828; border-color: #ff8a80; }
 button.danger { border-color: #e57373; color: #ffcdd2; }

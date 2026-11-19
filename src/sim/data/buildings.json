@@ -111,6 +111,29 @@
     "capturable": true,
     "storage": 500
   },
+  "port": {
+    "name": "港口",
+    "buildable": true,
+    "cost": {
+      "wood": 80,
+      "stone": 20
+    },
+    "buildSeconds": 30,
+    "placement": "coastal",
+    "territory": "connected",
+    "territoryRadius": 1,
+    "visionRadius": 3,
+    "popCap": 0,
+    "workerSlots": 0,
+    "production": {},
+    "trainingSlots": 0,
+    "garrisonSlots": 0,
+    "hp": 300,
+    "capturable": true,
+    "requiresTech": "shipping",
+    "harbor": true,
+    "navalTrainingSlots": 2
+  },
   "house": {
     "name": "民宅",
     "buildable": true,
