@@ -190,3 +190,24 @@ describe('loyalty', () => {
     expect(v.owner).toBe(1);
   });
 });
+
+describe('territory exploration', () => {
+  it('land that becomes territory is explored automatically', () => {
+    const s = startAt();
+    const camp = s.players[0].startTile;
+    const tile = s.tiles.findIndex(
+      (t, i) => TERRAIN[t.terrain].land && hexDistance(s, i, camp) === 3 && !s.buildings.some((b) => b.tile === i),
+    );
+    // Not yet known before it is ours.
+    const ring = s.tiles.map((_, i) => i).filter((i) => hexDistance(s, i, tile) <= BUILDINGS.house.territoryRadius && TERRAIN[s.tiles[i].terrain].land);
+    expect(ring.some((i) => s.players[0].knowledge[i] === 0)).toBe(true);
+    addBuilding(s, 'house', tile);
+    run(s, 1);
+    for (const i of ring) {
+      if (s.tiles[i].owner === 0) expect(s.players[0].knowledge[i]).toBe(1);
+    }
+    // Territory elsewhere is still unexplored.
+    const far = s.tiles.findIndex((t, i) => TERRAIN[t.terrain].land && t.owner === -1 && hexDistance(s, i, camp) > 8);
+    expect(s.players[0].knowledge[far]).toBe(0);
+  });
+});
