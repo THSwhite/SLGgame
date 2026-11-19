@@ -56,6 +56,9 @@ src/client/
   log.ts                 MessageLog: client-side history (events of the local player + chat), capped at 500
 src/ui/describe.ts       villagerStatus / activityIcon (also used by renderer icons and the units-on-tile list)
 src/ui/StorePanel.tsx     store contents of a camp/city/warehouse + transport order form
+src/client/orders.ts     exploreWithNearestIdle (explore a tile without a selection)
+src/client/tutorial.ts   fixed tutorial (seed 777, small map, passive neighbour, 11 steps with `done` checks and resource grants; `controller.tutorial`)
+src/ui/TutorialPanel.tsx tutorial instructions; src/ui/CrisisOverlay.tsx capital-fall decision
 src/ui/ChatLog.tsx       bottom-left log; Enter opens history + input; chat via controller.sendChat (net: {t:'chat'} through server)
 src/ui/Sound.tsx         useGameAudio(controller): SFX via controller.onIssue + relation-status watcher, music mood; SoundButton
 src/net/protocol.ts      ClientMessage/ServerMessage types, NATIONS, constants
@@ -78,6 +81,7 @@ docs/GDD.md              game design doc (zh-Hant) — update it when rules chan
 Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks starts when every human has a start (`applyCommand` chooseStart / playerLeft).
 
 ## Key game rules encoded in code (see GDD for full list)
+- The capital is building type `camp` (UI name 主城, drawn with a crown).
 - Knowledge per player: `knowledge[i]` 0 Unknown (land/water only) / 1 Explored; `visible[i]` derived each tick. Territory is always visible and `updateVision` marks every owned tile Explored automatically.
 - Territory = land tiles within `territoryRadius` of *active* territory buildings; each building first holds its own tile, then first-come by building id. Territory signature includes owner (captures trigger a recompute). Watchtowers are active only while garrisoned (`isActive`).
 - Placement rules: `validatePlacement` (territory: connected / near / foreign / free). Branch city (`city`, territory 'free'): count ≤ owned tiles / `branchCity.territoryTilesPerCity`; construction gated by `minVillagersNearby` (`systems/cities.ts` `lacksWorkforce`); `runCities` (1/min) may make cities beyond `independenceDistanceShare` × map width from the nearest camp break away (removed with nearby villagers). `connectsToTerritory` enforces contiguous territory.
@@ -95,6 +99,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Conquest (`systems/conquest.ts`): capturing a camp/city calls `annex`: region (territory radius + `regionExtraRadius`) buildings (with their stores) + villagers change owner; the loser's *last* camp annexes the whole nation. War damage in a seat's region accumulates in `building.devastation` (kills, building HP damage, destruction) and becomes the conquered villagers' `resentment`.
 - Villager `resentment` caps loyalty (100 − resentment) and decays slowly; loyalty scales `workEfficiency` (down to `loyalty.minWorkEfficiency`); loyalty below threshold may defect even inside territory.
 - Independence (`declareIndependence` in `systems/cities.ts`) creates a **new AI player mid-game** (`makePlayer` in `state.ts`, `addRelationsFor` in diplomacy): the city becomes its camp. `state.players` can therefore grow during a game — never assume a fixed player count (UI, net, hash all iterate `state.players`).
+- Capital fall (`systems/crisis.ts`): losing the *last* camp while complete branch cities remain sets `player.capitalCrisis` instead of annexing the nation; `capitalDecision` (surrender → `annexNation`; rise → most populous city becomes `camp` with `maxHp = camp.hp × riseHpShare`, villagers outside remaining seats' territory radius go to the conqueror). `runCrisis` applies `capitalFall.defaultChoice` at the deadline; AI decides at once. Building HP caps go through `buildingMaxHp(b)` (state.ts).
 - Elimination: no villagers or no complete territory building. Victory: conquest / territory share from `victory.territorySchedule` (`territoryThreshold`, none before the first step) / at `timeLimitMinutes` the largest land share (ties: `nationScore`).
 
 ## How to add things
@@ -115,6 +120,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Single-player `GameController` applies queued commands at the next tick; commands validated against the *current* state (a command depending on a not-yet-applied one, e.g. setSoldier then garrison in the same 100 ms, is rejected — scripts must wait a tick).
 
 ## Testing
+- `tests/tutorial.test.ts` plays the whole tutorial through with commands — keep it passing when changing tutorial steps or balance. `orders.test.ts` covers nearest-idle exploration.
 - `tests/sim.test.ts` (M1), `m2`…`m5` (feature rules), `naval.test.ts` (linear tech tree, ports, sailing, navy, sea combat), `storage.test.ts` (stores, transport factor, delivery, spawn, transport, cargo capture), `city.test.ts` (branch cities, independence → new nation), `conquest.test.ts` (annexation, devastation, resentment), `wood.test.ts` (wood availability across seeds, lumber camp), `net.test.ts` (real server on port 0 + two headless peers; checks per-frame hash equality and AI takeover).
 - Use helpers in `tests/helpers.ts`. Tests that mutate `BALANCE` must restore it (see `m5.test.ts` afterEach).
 - AI balance check (not committed): write a temporary test that runs 3 AIs (+ an idle human) for 60 min on a few seeds and logs land share / pop / soldiers / towers / houses / relations every 15 min. Last tuning (with storage + territory schedule): most games run to 60 min (time victory by land); a snowballing conqueror can win by territory around 30 min. AI keeps 0–9 warehouses. Delete the test afterwards.

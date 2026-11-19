@@ -6,6 +6,7 @@ import { findPath, isWater, pathOpts } from './pathfinding';
 import { getPlayer, logEvent, newVillager } from './state';
 import { connectsToTerritory, distanceToTerritory, isComplete, recomputeTerritory } from './systems/territory';
 import { researchBlocked } from './systems/research';
+import { resolveCrisis, riseCandidate, type CrisisChoice } from './systems/crisis';
 import { cityCount, cityLimit } from './systems/cities';
 import { breakRelations, consulateOf, getRelation, setStatus } from './systems/diplomacy';
 import { chooseAIStarts } from './ai/start';
@@ -39,6 +40,8 @@ export type Command =
   | { type: 'transport'; player: PlayerId; villager: number; from: number; to: number; resource: ResourceType; amount: number }
   /** Train an LV2 soldier into navy at an own harbor (requires the navy tech). */
   | { type: 'trainNavy'; player: PlayerId; villager: number; building: number }
+  /** After losing the last capital: surrender everything, or re-found the capital in a branch city. */
+  | { type: 'capitalDecision'; player: PlayerId; choice: CrisisChoice }
   /** System command (multiplayer server only): a player disconnected, AI takes over. */
   | { type: 'playerLeft'; player: PlayerId };
 
@@ -220,6 +223,12 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
 
   if (cmd.type === 'diplomacy') return validateDiplomacy(state, cmd.player, cmd.target, cmd.action);
 
+  if (cmd.type === 'capitalDecision') {
+    if (!player.capitalCrisis) return '主城沒有陷落';
+    if (cmd.choice === 'rise' && !riseCandidate(state, player)) return '沒有可以再起的分城';
+    return null;
+  }
+
   const v = ownVillager(state, cmd.player, cmd.villager);
   if (!v) return '找不到這位村民';
   if (v.order.kind === 'train' && v.order.paid) return '訓練期間不能做其他事情';
@@ -347,7 +356,7 @@ function startPlayer(state: GameState, player: PlayerId, tile: TileIndex): void 
     p.knowledge[idx] = Knowledge.Explored;
   }
   recomputeTerritory(state);
-  logEvent(state, player, `${p.name} 在此建立了營地`);
+  logEvent(state, player, `${p.name} 在此建立了主城`);
   if (state.players.every((pl) => pl.startTile !== -1)) {
     state.phase = 'playing';
     updateVision(state);
@@ -389,6 +398,10 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
   }
   if (cmd.type === 'diplomacy') {
     applyDiplomacy(state, cmd.player, cmd.target, cmd.action);
+    return null;
+  }
+  if (cmd.type === 'capitalDecision') {
+    resolveCrisis(state, getPlayer(state, cmd.player), cmd.choice);
     return null;
   }
 

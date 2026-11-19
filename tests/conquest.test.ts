@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BALANCE, BUILDINGS, TERRAIN } from '../src/sim/data';
+import { validateCommand } from '../src/sim/commands';
+import { stepGame } from '../src/sim/game';
 import { hexDistance } from '../src/sim/hex';
 import { getRelation, setStatus } from '../src/sim/systems/diplomacy';
 import { annex, addDevastation } from '../src/sim/systems/conquest';
@@ -114,5 +116,78 @@ describe('conquering capitals and branch cities', () => {
     expect(elsewhere.resentment).toBeGreaterThanOrEqual(2 * BALANCE.conquest.devastationPerKill - 1);
     expect(s.events.some((e) => e.player === 0 && e.message.includes('收復'))).toBe(true);
     expect(BUILDINGS.camp.capturable).toBe(true);
+  });
+});
+
+describe('capital falls: surrender or rise again', () => {
+  function setup() {
+    const s = twoNations();
+    const camp = capital(s, 1);
+    const enemyStart = s.players[1].startTile;
+    // Two branch cities: a big one and a small one.
+    const tiles = s.tiles
+      .map((_, i) => i)
+      .filter((i) => TERRAIN[s.tiles[i].terrain].land && s.tiles[i].owner === -1 && hexDistance(s, i, enemyStart) >= 7 && hexDistance(s, i, enemyStart) <= 9);
+    const bigTile = tiles[0];
+    const smallTile = tiles.find((t) => hexDistance(s, t, bigTile) >= 6)!;
+    const bigId = addBuilding(s, 'city', bigTile, 1);
+    addBuilding(s, 'city', smallTile, 1);
+    const big = s.buildings.find((b) => b.id === bigId)!;
+    const townsfolk = [newVillager(s, 1, bigTile), newVillager(s, 1, bigTile), newVillager(s, 1, bigTile)];
+    newVillager(s, 1, smallTile);
+    // A wanderer far from every city.
+    const wanderer = newVillager(s, 1, s.tiles.findIndex((t, i) => TERRAIN[t.terrain].land && t.owner === -1 && hexDistance(s, i, enemyStart) > 12 && hexDistance(s, i, bigTile) > 4 && hexDistance(s, i, smallTile) > 4));
+    run(s, 1);
+    return { s, camp, big, townsfolk, wanderer };
+  }
+
+  it('losing the last capital with branch cities left starts a 30-second decision instead of annexing everything', () => {
+    const { s, camp, big } = setup();
+    annex(s, camp, 1, 0);
+    expect(camp.owner).toBe(0);
+    expect(big.owner).toBe(1);
+    expect(s.players[1].capitalCrisis).toMatchObject({ by: 0 });
+    expect(s.players[1].capitalCrisis!.deadline - s.tick).toBe(BALANCE.capitalFall.decisionSeconds * BALANCE.ticksPerSecond);
+    run(s, 2);
+    expect(s.players[1].eliminated).toBe(false);
+  });
+
+  it('surrender: the whole nation is annexed', () => {
+    const { s, camp, big } = setup();
+    annex(s, camp, 1, 0);
+    expect(validateCommand(s, { type: 'capitalDecision', player: 1, choice: 'surrender' })).toBeNull();
+    stepGame(s, [{ type: 'capitalDecision', player: 1, choice: 'surrender' }]);
+    expect(big.owner).toBe(0);
+    run(s, 2);
+    expect(s.players[1].eliminated).toBe(true);
+  });
+
+  it('rise again: the most populous city becomes a half-strength capital; people outside city land are lost', () => {
+    const { s, camp, big, townsfolk, wanderer } = setup();
+    annex(s, camp, 1, 0);
+    stepGame(s, [{ type: 'capitalDecision', player: 1, choice: 'rise' }]);
+    expect(big.type).toBe('camp');
+    expect(big.owner).toBe(1);
+    expect(big.maxHp).toBe(BUILDINGS.camp.hp * BALANCE.capitalFall.riseHpShare);
+    expect(big.hp).toBe(big.maxHp);
+    expect(s.players[1].capitalCrisis).toBeNull();
+    expect(townsfolk.every((v) => v.owner === 1)).toBe(true);
+    expect(wanderer.owner).toBe(0);
+    run(s, 2);
+    expect(s.players[1].eliminated).toBe(false);
+  });
+
+  it('if nobody decides in time, the default choice is applied', () => {
+    const { s, camp, big } = setup();
+    annex(s, camp, 1, 0);
+    run(s, BALANCE.capitalFall.decisionSeconds + 1);
+    expect(s.players[1].capitalCrisis).toBeNull();
+    if (BALANCE.capitalFall.defaultChoice === 'rise') expect(big.type).toBe('camp');
+    else expect(big.owner).toBe(0);
+  });
+
+  it('decisions are only possible during a crisis', () => {
+    const s = twoNations();
+    expect(validateCommand(s, { type: 'capitalDecision', player: 1, choice: 'rise' })).toBe('主城沒有陷落');
   });
 });

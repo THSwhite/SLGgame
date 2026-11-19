@@ -56,6 +56,8 @@ export function runCities(state: GameState): void {
   if (state.tick % (60 * BALANCE.ticksPerSecond) !== 0) return;
   const cities = state.buildings.filter((b) => b.type === 'city' && isComplete(b)).sort((a, b) => a.id - b.id);
   for (const city of cities) {
+    // A nation deciding whether to rise again keeps its cities together meanwhile.
+    if (getPlayer(state, city.owner).capitalCrisis) continue;
     const chance = independenceChance(state, city);
     if (chance <= 0 || nextRandom(state) >= chance) continue;
     declareIndependence(state, city);

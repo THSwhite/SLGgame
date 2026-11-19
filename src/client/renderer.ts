@@ -1,7 +1,7 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { activityIcon } from '../ui/describe';
-import { unitMaxHp } from '../sim/state';
-import { BUILDINGS, TERRAIN, type ResourceType } from '../sim/data';
+import { buildingMaxHp, unitMaxHp } from '../sim/state';
+import { TERRAIN, type ResourceType } from '../sim/data';
 import { colOf, inBounds, neighborInDir, rowOf, toIndex } from '../sim/hex';
 import { Knowledge, type Building, type GameState } from '../sim/types';
 import type { GameController } from './controller';
@@ -296,10 +296,18 @@ export class MapRenderer {
     const alpha = done ? 1 : 0.45;
     const line = { color: 0x3e2723, width: 1.5, alpha };
     switch (b.type) {
-      case 'camp':
-        g.rect(cx - 9, cy - 4, 18, 12).fill({ color: 0xf5e6c8, alpha }).stroke(line);
-        g.poly([cx - 12, cy - 4, cx, cy - 14, cx + 12, cy - 4]).fill({ color: pc, alpha }).stroke(line);
+      case 'camp': {
+        // Capital: a keep in the nation's colour crowned in gold.
+        g.rect(cx - 11, cy - 4, 22, 12).fill({ color: 0xf5e6c8, alpha }).stroke(line);
+        for (const bx of [-11, -4, 3]) g.rect(cx + bx, cy - 7, 4, 3).fill({ color: 0xf5e6c8, alpha }).stroke({ ...line, width: 1 });
+        g.rect(cx - 3, cy + 2, 6, 6).fill({ color: pc, alpha });
+        const top = cy - 9;
+        g.poly([cx - 9, top, cx - 9, top - 7, cx - 5, top - 3, cx, top - 10, cx + 5, top - 3, cx + 9, top - 7, cx + 9, top])
+          .fill({ color: 0xffd54f, alpha })
+          .stroke({ color: 0x8d6e00, width: 1.2, alpha });
+        g.circle(cx, top - 10, 1.8).fill({ color: 0xe53935, alpha });
         break;
+      }
       case 'port':
         // Pier on posts with an anchor flag.
         g.rect(cx - 12, cy + 2, 24, 5).fill({ color: 0x8d6e63, alpha }).stroke(line);
@@ -376,7 +384,7 @@ export class MapRenderer {
       g.rect(cx - 12, cy + 12, 24, 4).fill(0x222222);
       g.rect(cx - 12, cy + 12, 24 * b.progress, 4).fill(0x81c784);
     }
-    const maxHp = BUILDINGS[b.type].hp;
+    const maxHp = buildingMaxHp(b);
     if (b.hp < maxHp) {
       g.rect(cx - 12, cy + 17, 24, 3).fill(0x222222);
       g.rect(cx - 12, cy + 17, 24 * Math.max(0, b.hp / maxHp), 3).fill(0xef5350);

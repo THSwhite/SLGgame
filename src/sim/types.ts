@@ -77,6 +77,8 @@ export interface Building {
   store?: Record<ResourceType, number>;
   /** Ticks until construction materials arrive at this site (construction waits until 0). */
   delivery?: number;
+  /** Overrides the type's max HP (e.g. a capital re-founded after a fall has half). */
+  maxHp?: number;
 }
 
 /** Per-player settings from the management menu. */
@@ -120,6 +122,8 @@ export interface Player {
   /** Personality for AI players (0..1 each). */
   ai: AIPersonality | null;
   eliminated: boolean;
+  /** Set when the last capital fell but branch cities remain: surrender or rise again before `deadline`. */
+  capitalCrisis: { by: PlayerId; deadline: number; resentment: number } | null;
 }
 
 export interface AIPersonality {

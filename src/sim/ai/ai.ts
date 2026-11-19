@@ -9,6 +9,7 @@ import { consulateOf, other, relationsOf } from '../systems/diplomacy';
 import { researchBlocked } from '../systems/research';
 import { garrisonOf, isComplete } from '../systems/territory';
 import { cityCount, cityLimit, independenceThreshold } from '../systems/cities';
+import { riseCandidate } from '../systems/crisis';
 import { storageCapacity, storesOf } from '../storage';
 import { Knowledge, type Building, type GameState, type Player, type Villager } from '../types';
 
@@ -56,6 +57,12 @@ class Brain {
   }
 
   think() {
+    if (this.me.capitalCrisis) {
+      // Rise again if a city with some people is left, otherwise give up.
+      const city = riseCandidate(this.state, this.me);
+      const people = city ? this.state.villagers.filter((v) => v.owner === this.me.id && hexDistance(this.state, v.tile, city.tile) <= 3).length : 0;
+      this.issue({ type: 'capitalDecision', player: this.me.id, choice: people >= 2 ? 'rise' : 'surrender' });
+    }
     this.diplomacy();
     this.research();
     this.military();

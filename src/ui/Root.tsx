@@ -5,6 +5,7 @@ import { BALANCE } from '../sim/data';
 import { MAX_PLAYERS } from '../net/protocol';
 import { Game } from './App';
 import { audio } from '../client/audio';
+import { createTutorialController } from '../client/tutorial';
 
 type Screen =
   | { kind: 'menu' }
@@ -60,12 +61,17 @@ export function Root() {
         audio.unlock();
         setScreen({ kind: 'single', controller: new GameController({ seed: randomSeed() }) });
       }}
+      onTutorial={() => {
+        audio.unlock();
+        const controller = createTutorialController();
+        setScreen({ kind: 'single', controller });
+      }}
       onOnline={(client) => setScreen({ kind: 'lobby', client })}
     />
   );
 }
 
-function Menu({ onSingle, onOnline }: { onSingle: () => void; onOnline: (c: NetClient) => void }) {
+function Menu({ onSingle, onTutorial, onOnline }: { onSingle: () => void; onTutorial: () => void; onOnline: (c: NetClient) => void }) {
   const [name, setName] = useState(loadName);
   const [url, setUrl] = useState(defaultServerUrl);
   const [code, setCode] = useState('');
@@ -83,6 +89,9 @@ function Menu({ onSingle, onOnline }: { onSingle: () => void; onOnline: (c: NetC
         <p className="hint">探索、經營、擴張國土，與其他國家建交或開戰。</p>
         <button className="big" onClick={onSingle}>
           單人遊戲（對 AI）
+        </button>
+        <button className="big tutorial-button" onClick={onTutorial}>
+          🎓 新手教學
         </button>
         <h3>多人連線</h3>
         <label className="field">

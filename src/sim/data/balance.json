@@ -193,5 +193,10 @@
       "attack": 8,
       "hp": 150
     }
+  },
+  "capitalFall": {
+    "decisionSeconds": 30,
+    "riseHpShare": 0.5,
+    "defaultChoice": "rise"
   }
 }

@@ -18,6 +18,9 @@ import { cityCount, cityLimit, distanceToCapital, independenceChance, independen
 import { getRelation } from '../sim/systems/diplomacy';
 import { EndOverlay } from './EndOverlay';
 import { StorePanel } from './StorePanel';
+import { CrisisOverlay } from './CrisisOverlay';
+import { TutorialPanel } from './TutorialPanel';
+import { exploreWithNearestIdle } from '../client/orders';
 import { storageCapacity, storesOf } from '../sim/storage';
 import { useGameAudio, SoundButton } from './Sound';
 import { ChatLog } from './ChatLog';
@@ -111,6 +114,13 @@ export function Game({ controller, onExit }: { controller: GameController; onExi
         return;
       }
       if (button === 'right') {
+        // No unit selected: right-clicking unexplored land sends the nearest idle unit.
+        const me = s.players[controller.localPlayer];
+        if (controller.orderTargets.length === 0 && TERRAIN[s.tiles[tile].terrain].land && me.knowledge[tile] !== Knowledge.Explored) {
+          controller.select({ tile });
+          exploreWithNearestIdle(controller, tile);
+          return;
+        }
         smartCommand(controller, tile);
         return;
       }
@@ -158,6 +168,10 @@ export function Game({ controller, onExit }: { controller: GameController; onExi
     <div className="app">
       <div className="map" ref={hostRef} />
       {s.phase === 'ended' && <EndOverlay controller={controller} state={s} />}
+      {s.phase === 'playing' && <CrisisOverlay controller={controller} state={s} />}
+      {controller.tutorial && (
+        <TutorialPanel controller={controller} onFocus={(t) => rendererRef.current?.centerOn(t)} onExit={onExit} />
+      )}
       {controller.isNetwork && (controller as NetGameController).desync && (
         <div className="panel desync">⚠ 偵測到與其他玩家的遊戲狀態不同步。請回報這個問題。</div>
       )}
@@ -368,7 +382,7 @@ function ManagementPanel({ controller, state, onClose }: { controller: GameContr
       </div>
       <div className={blocked ? 'error' : 'hint'}>{blocked ?? `下一位村民：${Math.ceil((1 - progress) * m.popIntervalSeconds)} 秒`}</div>
       <div className="hint">
-        每位新村民消耗糧食 {pop.foodCostPerVillager}。人口上限 {populationCap(state, me)} = 營地 {BUILDINGS.camp.popCap} + 民宅 {houses} ×{' '}
+        每位新村民消耗糧食 {pop.foodCostPerVillager}。人口上限 {populationCap(state, me)} = 主城 {BUILDINGS.camp.popCap} + 民宅 {houses} ×{' '}
         {BUILDINGS.house.popCap}
       </div>
       <label className="slider">
@@ -487,7 +501,7 @@ function VillagerPanel({
       ))}
       <SelectedVillager controller={controller} state={state} />
       <div className="hint">
-        左鍵：選取 ／ 右鍵：對選取的村民下指令（自己的建築→建造或工作、未探索→探索、有資源→採集、其他→移動）
+        左鍵：選取 ／ 右鍵：對選取的村民下指令；沒有選取時右鍵點未探索的地 → 派最近的閒置單位探索。（自己的建築→建造或工作、未探索→探索、有資源→採集、其他→移動）
         <br />
         Shift＋點清單：多選 ／ 士兵右鍵敵方：進攻
         <br />
@@ -513,6 +527,7 @@ function BuildingInfo({ controller, state, tile }: { controller: GameController;
   return (
     <div className="building-info">
       <div className="panel-title">
+        {b.type === 'camp' ? '👑 ' : ''}
         {def.name} <small>{mine ? '' : owner.name}</small>
       </div>
       {b.progress < 1 ? (
@@ -676,7 +691,16 @@ function TilePanel({ controller, state }: { controller: GameController; state: G
           </div>
         </>
       )}
-      {def.land && !explored && <div className="hint">需要派村民探索（{BALANCE.exploreSeconds} 秒）才能得知資源。</div>}
+      {def.land && !explored && (
+        <>
+          <div className="hint">需要派村民探索（{BALANCE.exploreSeconds} 秒）才能得知資源。</div>
+          {!villager && (
+            <div className="actions">
+              <button onClick={() => exploreWithNearestIdle(controller, tile)}>探索（派最近的閒置單位）</button>
+            </div>
+          )}
+        </>
+      )}
       <BuildingInfo controller={controller} state={state} tile={tile} />
       <UnitsOnTile state={state} me={me.id} tile={tile} />
       {villager?.naval && !def.land && (

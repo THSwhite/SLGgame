@@ -4,7 +4,7 @@ import type { GameState } from '../sim/types';
 export function stateHash(state: GameState): string {
   const parts: Array<string | number> = [state.tick, state.rngState, state.phase, state.nextEntityId];
   for (const p of state.players) {
-    parts.push(p.id, p.startTile, p.eliminated ? 1 : 0, p.researchPoints.toFixed(3));
+    parts.push(p.id, p.startTile, p.eliminated ? 1 : 0, p.researchPoints.toFixed(3), p.capitalCrisis ? p.capitalCrisis.deadline : 0);
     for (const v of Object.values(p.stock)) parts.push(v.toFixed(3));
     parts.push(p.knowledge.reduce((a, k) => a + k, 0));
   }

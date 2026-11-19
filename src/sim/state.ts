@@ -1,4 +1,4 @@
-import { BALANCE } from './data';
+import { BALANCE, BUILDINGS } from './data';
 import { Knowledge, type AIPersonality, type GameState, type Player, type PlayerId, type TileIndex, type Villager } from './types';
 
 export const MAX_EVENTS = 100;
@@ -77,5 +77,11 @@ export function makePlayer(
     researchPoints: 0,
     ai,
     eliminated: false,
+    capitalCrisis: null,
   };
+}
+
+/** Max HP of a building (some buildings have a reduced cap). */
+export function buildingMaxHp(b: { type: keyof typeof BUILDINGS; maxHp?: number }): number {
+  return b.maxHp ?? BUILDINGS[b.type].hp;
 }

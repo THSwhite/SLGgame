@@ -2,7 +2,7 @@ import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES } from '../data';
 import { getModifiers } from '../modifiers';
 import { deposit } from '../storage';
 import { neighbors } from '../hex';
-import { getPlayer, logEvent, unitMaxHp } from '../state';
+import { buildingMaxHp, getPlayer, logEvent, unitMaxHp } from '../state';
 import { isWater } from '../pathfinding';
 import type { Building, GameState, PlayerId, Villager } from '../types';
 import { atWarWith } from './diplomacy';
@@ -136,7 +136,7 @@ export function runCombat(state: GameState): void {
     const loser = getPlayer(state, b.owner).name;
     const winner = getPlayer(state, d.by).name;
     if (def.capturable && b.progress >= 1) {
-      b.hp = def.hp * BALANCE.combat.captureHpShare;
+      b.hp = buildingMaxHp(b) * BALANCE.combat.captureHpShare;
       delete b.host;
       captured = true;
       if (isSeat(b)) {

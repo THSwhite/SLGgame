@@ -40,6 +40,8 @@ export class GameController {
   selection: Selection = { villager: null, tile: null, group: [] };
   options: GameOptions;
   lastError: string | null = null;
+  /** Set for the tutorial (see tutorial.ts). */
+  tutorial: import('./tutorial').Tutorial | null = null;
   /** Event history and chat (client-only, not part of the simulation). */
   log = new MessageLog();
   /** UI hook (sound effects): called after every locally issued command. */

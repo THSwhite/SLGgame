@@ -116,6 +116,14 @@ export interface Balance {
     navyTech: string;
     navy: { trainSeconds: number; cost: Partial<Record<ResourceType, number>>; attack: number; hp: number };
   };
+  capitalFall: {
+    /** Time to choose between surrender and rising again after losing the last capital. */
+    decisionSeconds: number;
+    /** Max HP share of the re-founded capital. */
+    riseHpShare: number;
+    /** What happens when nobody chooses in time. */
+    defaultChoice: 'rise' | 'surrender';
+  };
   /** Names/colors for nations founded by independent cities. */
   independentNations: Array<{ name: string; color: string }>;
   conquest: {

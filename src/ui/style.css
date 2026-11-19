@@ -184,3 +184,14 @@ input { background: #1b2430; color: var(--text); border: 1px solid var(--border)
 .transport { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 6px; }
 .transport .hint { width: 100%; margin: 0; }
 select { background: #1b2430; color: var(--text); border: 1px solid var(--border); border-radius: 5px; padding: 3px 6px; font: inherit; }
+
+.crisis-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.crisis-option button { width: 100%; }
+@media (max-width: 520px) { .crisis-options { grid-template-columns: 1fr; } }
+
+.tutorial { top: 56px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100% - 16px)); z-index: 2;
+  border-color: #4fc3f7; box-shadow: 0 0 0 1px rgba(79, 195, 247, 0.3); }
+.tutorial p { margin: 6px 0; }
+.tutorial-buttons { display: flex; gap: 4px; }
+button.tutorial-button { background: #1565c0; border-color: #64b5f6; }
+button.tutorial-button:hover:not(:disabled) { background: #1976d2; }
