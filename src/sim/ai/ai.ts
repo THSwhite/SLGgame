@@ -1,5 +1,5 @@
 import { BALANCE, BUILDINGS, TECHS, TERRAIN, type BuildingType, type ResourceType } from '../data';
-import { applyCommand, validatePlacement, type Command } from '../commands';
+import { applyCommand, canExploreTile, validatePlacement, type Command } from '../commands';
 import { hexDistance, tilesInRadius } from '../hex';
 import { adjacentForests, hasFreshWaterNearby, incomePerMinute, workersAt } from '../economy';
 import { secondsToTicks } from '../state';
@@ -140,7 +140,7 @@ class Brain {
   private explore(v: Villager): boolean {
     for (const radius of [12, 18]) {
       const tile = tilesInRadius(this.state, this.me.startTile, radius)
-        .filter((t) => TERRAIN[this.state.tiles[t].terrain].land && this.me.knowledge[t] === Knowledge.Unknown)
+        .filter((t) => TERRAIN[this.state.tiles[t].terrain].land && this.me.knowledge[t] === Knowledge.Unknown && canExploreTile(this.state, this.me.id, t))
         .sort((a, b) => hexDistance(this.state, a, v.tile) - hexDistance(this.state, b, v.tile) || a - b)[0];
       if (tile !== undefined) return this.issue({ type: 'explore', player: this.me.id, villager: v.id, tile });
     }

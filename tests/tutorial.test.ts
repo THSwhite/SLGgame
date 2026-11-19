@@ -3,7 +3,7 @@ import { createTutorialController } from '../src/client/tutorial';
 import type { GameController } from '../src/client/controller';
 import { BUILDINGS, TERRAIN, type BuildingType } from '../src/sim/data';
 import { hexDistance } from '../src/sim/hex';
-import { validateCommand, type Command } from '../src/sim/commands';
+import { canExploreTile, validateCommand, type Command } from '../src/sim/commands';
 import { capitalOf } from '../src/sim/storage';
 
 /** Advance the game (1 tick per call) and let the tutorial check its step. */
@@ -101,7 +101,7 @@ describe('tutorial', () => {
     play(c, 3);
 
     at('探索未知地');
-    const unknown = s.tiles.findIndex((x, i) => TERRAIN[x.terrain].land && s.players[0].knowledge[i] === 0 && hexDistance(s, i, s.players[0].startTile) <= 5);
+    const unknown = s.tiles.findIndex((x, i) => TERRAIN[x.terrain].land && s.players[0].knowledge[i] === 0 && canExploreTile(s, 0, i));
     issue(c, { type: 'explore', player: 0, villager: idleVillager(c).id, tile: unknown });
     play(c, 3);
 

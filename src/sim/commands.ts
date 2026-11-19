@@ -69,6 +69,16 @@ function costText(cost: Partial<Record<ResourceType, number>>): string {
   return RESOURCE_TYPES.filter((r) => cost[r]).map((r) => `${RESOURCE_NAMES[r]} ${cost[r]}`).join('、');
 }
 
+/**
+ * No exploring from afar: the tile must border an explored tile, or be next to
+ * (or under) one of our units — so a landing party can start on a new shore.
+ */
+export function canExploreTile(state: GameState, player: PlayerId, tile: TileIndex): boolean {
+  const known = getPlayer(state, player).knowledge;
+  if (neighbors(state, tile).some((n) => known[n] === Knowledge.Explored)) return true;
+  return state.villagers.some((v) => v.owner === player && hexDistance(state, v.tile, tile) <= 1);
+}
+
 /** Placement rules for a building, independent of which villager builds it. */
 export function validatePlacement(state: GameState, player: Player, tile: TileIndex, type: BuildingType): string | null {
   const def = BUILDINGS[type];
@@ -332,6 +342,7 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
   switch (cmd.type) {
     case 'explore':
       if (player.knowledge[cmd.tile] === Knowledge.Explored) return '該地塊已經探索過';
+      if (!canExploreTile(state, cmd.player, cmd.tile)) return '只能探索已知地塊周圍的地塊';
       return null;
     case 'gather': {
       if (player.knowledge[cmd.tile] !== Knowledge.Explored) return '需要先探索該地塊';

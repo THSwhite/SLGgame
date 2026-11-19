@@ -2,7 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { GameController, MAX_AI, randomSeed, SPEEDS, type Speed } from '../client/controller';
 import { MapRenderer } from '../client/renderer';
 import { BALANCE, BUILDING_TYPES, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES, TERRAIN, type ResourceType } from '../sim/data';
-import { validateCommand } from '../sim/commands';
+import { canExploreTile, validateCommand, validatePlacement } from '../sim/commands';
 import {
   adjacentForests,
   buildingRatePerWorker,
@@ -20,7 +20,7 @@ import { EndOverlay } from './EndOverlay';
 import { StorePanel } from './StorePanel';
 import { CrisisOverlay } from './CrisisOverlay';
 import { TutorialPanel } from './TutorialPanel';
-import { exploreWithNearestIdle } from '../client/orders';
+import { exploreWithNearestIdle, quickOrder, withNearestIdle } from '../client/orders';
 import { storageCapacity, storesOf } from '../sim/storage';
 import { useGameAudio, SoundButton } from './Sound';
 import { ChatLog } from './ChatLog';
@@ -114,11 +114,11 @@ export function Game({ controller, onExit }: { controller: GameController; onExi
         return;
       }
       if (button === 'right') {
-        // No unit selected: right-clicking unexplored land sends the nearest idle unit.
-        const me = s.players[controller.localPlayer];
-        if (controller.orderTargets.length === 0 && TERRAIN[s.tiles[tile].terrain].land && me.knowledge[tile] !== Knowledge.Explored) {
+        // No unit selected: the nearest idle unit takes the natural job on this tile
+        // (explore unknown land, help build / work in our building, gather resources).
+        if (controller.orderTargets.length === 0 && TERRAIN[s.tiles[tile].terrain].land) {
           controller.select({ tile });
-          exploreWithNearestIdle(controller, tile);
+          quickOrder(controller, tile);
           return;
         }
         smartCommand(controller, tile);
@@ -617,6 +617,19 @@ function BuildingInfo({ controller, state, tile }: { controller: GameController;
           </button>
         </div>
       )}
+      {mine && vid === null && (b.progress < 1 || def.workerSlots > 0) && (
+        <div className="actions">
+          <button
+            onClick={() =>
+              withNearestIdle(controller, b.tile, (v) => ({ type: 'work', player: controller.localPlayer, villager: v.id, building: b.id }), {
+                civiliansOnly: true,
+              })
+            }
+          >
+            {b.progress < 1 ? '派最近的閒置村民協助建造' : '派最近的閒置村民來工作'}
+          </button>
+        </div>
+      )}
       {mine && vid !== null && (b.progress < 1 || def.workerSlots > 0) && (
         <div className="actions">
           <button onClick={() => controller.issue({ type: 'work', player: controller.localPlayer, villager: vid, building: b.id })}>
@@ -694,11 +707,14 @@ function TilePanel({ controller, state }: { controller: GameController; state: G
       {def.land && !explored && (
         <>
           <div className="hint">需要派村民探索（{BALANCE.exploreSeconds} 秒）才能得知資源。</div>
-          {!villager && (
-            <div className="actions">
-              <button onClick={() => exploreWithNearestIdle(controller, tile)}>探索（派最近的閒置單位）</button>
-            </div>
-          )}
+          {!villager &&
+            (canExploreTile(state, me.id, tile) ? (
+              <div className="actions">
+                <button onClick={() => exploreWithNearestIdle(controller, tile)}>探索（派最近的閒置單位）</button>
+              </div>
+            ) : (
+              <div className="hint neg">只能探索已知地塊周圍的地塊，請先探索靠近這裡的地方。</div>
+            ))}
         </>
       )}
       <BuildingInfo controller={controller} state={state} tile={tile} />
@@ -740,17 +756,41 @@ function TilePanel({ controller, state }: { controller: GameController; state: G
           )}
         </div>
       )}
-      {villager && def.land && explored && !hasBuilding && (
+      {!villager && def.land && explored && t.deposits.length > 0 && !hasBuilding && (
+        <div className="actions">
+          <div className="hint">派最近的閒置村民：</div>
+          {t.deposits.map((d) => (
+            <button
+              key={d.resource}
+              onClick={() =>
+                withNearestIdle(controller, tile, (v) => ({ type: 'gather', player: me.id, villager: v.id, tile, resource: d.resource }), {
+                  civiliansOnly: true,
+                })
+              }
+            >
+              採集{RESOURCE_NAMES[d.resource]}
+            </button>
+          ))}
+        </div>
+      )}
+      {def.land && explored && !hasBuilding && (
         <div className="build-menu">
           <div className="hint">
             建造：<span>（分城 {cityCount(state, me)}/{cityLimit(state, me)}，每 {BALANCE.branchCity.territoryTilesPerCity} 格國土 1 座）</span>
           </div>
+          {!villager && <div className="hint">（沒有選取村民：由最近的閒置村民負責建造）</div>}
           {BUILDING_TYPES.filter((type) => BUILDINGS[type].buildable).map((type) => {
-            const cmd = { type: 'placeBuilding', player: me.id, villager: villager.id, tile, building: type } as const;
-            const err = validateCommand(state, cmd);
+            const cmd = villager ? ({ type: 'placeBuilding', player: me.id, villager: villager.id, tile, building: type } as const) : null;
+            const err = cmd ? validateCommand(state, cmd) : validatePlacement(state, me, tile, type);
+            const order = () =>
+              cmd
+                ? controller.issue(cmd)
+                : withNearestIdle(controller, tile, (v) => ({ type: 'placeBuilding', player: me.id, villager: v.id, tile, building: type }), {
+                    civiliansOnly: true,
+                  });
             return (
               <div key={type} className="build-row">
-                <button disabled={err !== null} onClick={() => controller.issue(cmd)}>
+                <button disabled={err !== null} onClick={order}>
                   {BUILDINGS[type].name}
                 </button>
                 <span className="cost">{costText(BUILDINGS[type].cost)}</span>
