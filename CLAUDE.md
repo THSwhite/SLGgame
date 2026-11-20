@@ -56,7 +56,7 @@ src/client/
   log.ts                 MessageLog: client-side history (events of the local player + chat), capped at 500
 src/ui/describe.ts       villagerStatus / activityIcon (also used by renderer icons and the units-on-tile list)
 src/ui/StorePanel.tsx     store contents of a camp/city/warehouse + transport order form
-src/client/orders.ts     exploreWithNearestIdle (explore a tile without a selection)
+src/client/orders.ts     withNearestIdle / exploreWithNearestIdle / quickOrder: orders for the nearest idle unit when nothing is selected
 src/client/tutorial.ts   fixed tutorial (seed 777, small map, passive neighbour, 11 steps with `done` checks and resource grants; `controller.tutorial`)
 src/ui/TutorialPanel.tsx tutorial instructions; src/ui/CrisisOverlay.tsx capital-fall decision
 src/ui/ChatLog.tsx       bottom-left log; Enter opens history + input; chat via controller.sendChat (net: {t:'chat'} through server)
@@ -82,7 +82,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 
 ## Key game rules encoded in code (see GDD for full list)
 - The capital is building type `camp` (UI name 主城, drawn with a crown).
-- Knowledge per player: `knowledge[i]` 0 Unknown (land/water only) / 1 Explored; `visible[i]` derived each tick. Territory is always visible and `updateVision` marks every owned tile Explored automatically.
+- Knowledge per player: `knowledge[i]` 0 Unknown (land/water only) / 1 Explored; `visible[i]` derived each tick. Territory is always visible and `updateVision` marks every owned tile Explored automatically. Exploring needs `canExploreTile` (borders an explored tile, or within 1 of an own unit).
 - Territory = land tiles within `territoryRadius` of *active* territory buildings; each building first holds its own tile, then first-come by building id. Territory signature includes owner (captures trigger a recompute). Watchtowers are active only while garrisoned (`isActive`).
 - Placement rules: `validatePlacement` (territory: connected / near / foreign / free). Branch city (`city`, territory 'free'): count ≤ owned tiles / `branchCity.territoryTilesPerCity`; construction gated by `minVillagersNearby` (`systems/cities.ts` `lacksWorkforce`); `runCities` (1/min) may make cities beyond `independenceDistanceShare` × map width from the nearest camp break away (removed with nearby villagers). `connectsToTerritory` enforces contiguous territory.
 - **Storage** (`src/sim/storage.ts`): resources live in `building.store` of buildings with `storage` (camp, city, warehouse); `player.stock` is a *derived total* refreshed by storage functions and at the end of every tick — never assign to it. Use `deposit` (nearest store with room; overflow further; lost if all full), `withdraw` (nearest first; returns farthest distance), `withdrawUpTo`, `fillStore` (ignores capacity). Income of a job = rate × `transportFactor(distance to depositTarget)`; production stalls when storage is full. `placeBuilding` sets `building.delivery` (ticks) from the farthest store used; construction waits while it is > 0. Food upkeep: each villager eats from its nearest store (1/s). Population spawns at `management.spawnAt` (camp/city) and pays there first. `transport` order carries one resource (≤ `transport.carryCapacity`) between own stores; killing a carrier deposits the `cargo` for the killer. In tests use `setStock(s, owner, {...})` from helpers.
