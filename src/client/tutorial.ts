@@ -3,7 +3,8 @@ import { byDistanceTo, colOf, hexDistance, rowOf, tilesInRadius } from '../sim/h
 import { findPath } from '../sim/pathfinding';
 import { capitalOf, fillStore } from '../sim/storage';
 import { getRelation } from '../sim/systems/diplomacy';
-import { createGame, stepGame } from '../sim/game';
+import { createGame } from '../sim/game';
+import { startPlayer, validatePlacement } from '../sim/commands';
 import type { GameState } from '../sim/types';
 import { GameController } from './controller';
 
@@ -12,11 +13,12 @@ export const TUTORIAL_SEED = 777;
 export const TUTORIAL_MAP = 'small';
 const PLAYER = 0;
 const NEIGHBOUR = 1;
+const NEIGHBOUR_DISTANCE = 8;
 
 export interface TutorialStep {
   title: string;
-  /** Lines of instructions (zh-Hant). */
-  text: string[];
+  /** Lines of instructions (zh-Hant); may depend on progress within the step. */
+  text: string[] | ((t: Tutorial) => string[]);
   /** Resources added to our capital when the step starts. */
   grant?: Partial<Record<ResourceType, number>>;
   /** Called once when the step starts; remembers a baseline for `done`. */
@@ -33,7 +35,11 @@ function solidStart(s: GameState, i: number): boolean {
     tilesInRadius(s, i, 3).some((t) => s.tiles[t].terrain === 'forest');
 }
 
-/** Deterministic starts: ours near the centre, the neighbour 11–13 tiles away by land. */
+/**
+ * Deterministic starts: ours near the centre, the neighbour 8 tiles away over
+ * land, so exploring 3 tiles towards it (from the explored radius 2) brings
+ * its territory (radius 2) into view.
+ */
 function chooseStarts(s: GameState): [number, number] {
   const cx = s.width / 2;
   const cy = s.height / 2;
@@ -44,7 +50,7 @@ function chooseStarts(s: GameState): [number, number] {
   for (const me of candidates) {
     const other = s.tiles
       .map((_, i) => i)
-      .find((i) => solidStart(s, i) && hexDistance(s, i, me) >= 11 && hexDistance(s, i, me) <= 13 && findPath(s, me, i) !== null);
+      .find((i) => solidStart(s, i) && hexDistance(s, i, me) === NEIGHBOUR_DISTANCE && (findPath(s, me, i)?.length ?? 99) <= NEIGHBOUR_DISTANCE + 1);
     if (other !== undefined) return [me, other];
   }
   throw new Error('tutorial map has no valid starts');
@@ -84,6 +90,27 @@ export class Tutorial {
       );
     };
     const rel = () => getRelation(controller.state, PLAYER, NEIGHBOUR);
+    const neighbourConsulate = () =>
+      controller.state.buildings.find((b) => b.owner === NEIGHBOUR && b.type === 'consulate' && b.host === PLAYER);
+    /** The neighbour sends a villager to build its consulate in our territory. */
+    const sendEnvoy = () => {
+      const st = controller.state;
+      const them = st.players[NEIGHBOUR];
+      const capital = capitalOf(st, NEIGHBOUR);
+      if (!capital) return;
+      fillStore(st, capital, { wood: 100, stone: 50 });
+      const site = st.tiles
+        .map((_, i) => i)
+        .filter((i) => st.tiles[i].owner === PLAYER)
+        .sort(byDistanceTo(st, capital.tile))
+        .find((i) => {
+          them.knowledge[i] = 1; // they know where they are going
+          return validatePlacement(st, them, i, 'consulate') === null;
+        });
+      const envoy = st.villagers.find((v) => v.owner === NEIGHBOUR && !v.soldier);
+      if (site === undefined || !envoy) return;
+      controller.issue({ type: 'placeBuilding', player: NEIGHBOUR, villager: envoy.id, tile: site, building: 'consulate' });
+    };
 
     this.steps = [
       {
@@ -154,7 +181,7 @@ export class Tutorial {
       {
         title: '遇到他國',
         text: [
-          `聽說${dir}有一個國家。派村民往${dir}一路探索或移動，直到看見對方的國土或村民。`,
+          `聽說${dir}有一個國家。往${dir}連續探索大約 3 格（每次右鍵點已知範圍邊緣、靠${dir}的灰色地塊），就會看到對方的國土。`,
           '看到其他國家的單位、建築或國土時，就算「接觸」了。之後才能進行外交。',
         ],
         done: () => rel().contact,
@@ -162,19 +189,32 @@ export class Tutorial {
       },
       {
         title: '如何外交',
-        text: [
-          '按 D 打開外交面板，對鄰國按「提議建交」。',
-          '建交後雙方要在期限內，到對方國土內各蓋一座領事館，才能成為正式邦交（共享地圖、貿易、研究加成）。',
-          '這次教學中，鄰國會接受你的提議。',
-        ],
+        text: () => {
+          const r = rel();
+          if (r.status === 'none') {
+            return [
+              '按 D 打開外交面板，對鄰國按「提議建交」。',
+              '這次教學中，鄰國會接受你的提議。',
+            ];
+          }
+          const c2 = neighbourConsulate();
+          return [
+            '🤝 建交成功！鄰國派了一位村民到你的國土，正在蓋他們的領事館（頭上有 🔨 圖示，點那一格可以看到進度）。',
+            '建交後，雙方要在期限內（外交面板會倒數）到對方國土各蓋一座領事館；兩座都蓋好就成為「正式邦交」，好處有：',
+            '・共享地圖：對方探索過的地方你也看得到（斷交後仍保留）　・貿易：每分鐘自動獲得糧食、木材、石材　・研究交流：研究速度 +10%　・領事館本身提供周圍 2 格的視野',
+            '（你也可以派村民到對方國土蓋我們的領事館。）' + (c2 ? `　鄰國領事館進度：${Math.floor(c2.progress * 100)}%` : ''),
+          ];
+        },
         done: () => {
           const r = rel();
           if (r.proposal?.from === PLAYER) {
             // The tutorial neighbour always agrees.
             controller.issue({ type: 'diplomacy', player: NEIGHBOUR, target: PLAYER, action: 'accept' });
           }
-          return r.status === 'establishing' || r.status === 'allied';
+          if (r.status === 'establishing' && !neighbourConsulate()) sendEnvoy();
+          return neighbourConsulate()?.progress === 1;
         },
+        focus: () => neighbourConsulate()?.tile ?? null,
       },
       {
         title: '訓練士兵',
@@ -258,11 +298,10 @@ export function createTutorialController(): GameController {
       { name: '鄰國', color: '#1e88e5', isAI: true },
     ],
   });
+  // Scenario setup: the neighbour is closer than the normal minimum start distance.
   const [mine, theirs] = chooseStarts(c.state);
-  stepGame(c.state, [
-    { type: 'chooseStart', player: NEIGHBOUR, tile: theirs },
-    { type: 'chooseStart', player: PLAYER, tile: mine },
-  ]);
+  startPlayer(c.state, NEIGHBOUR, theirs);
+  startPlayer(c.state, PLAYER, mine);
   // The tutorial neighbour stays passive: it only does what the tutorial asks.
   c.state.players[NEIGHBOUR].ai = null;
   c.state.players[NEIGHBOUR].management.popEnabled = false;

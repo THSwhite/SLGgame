@@ -42,7 +42,7 @@ export function TutorialPanel({ controller, onFocus, onExit }: { controller: Gam
       <div className="progress">
         <div className="bar" style={{ width: `${((t.index + (done ? 1 : 0)) / total) * 100}%` }} />
       </div>
-      {step.text.map((line, i) => (
+      {(typeof step.text === 'function' ? step.text(t) : step.text).map((line, i) => (
         <p key={i}>{line}</p>
       ))}
       {done ? <div className="pos">✔ 完成！</div> : <div className="hint">完成上面的操作後會自動進到下一步。</div>}

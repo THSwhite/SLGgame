@@ -106,13 +106,31 @@ describe('tutorial', () => {
     play(c, 3);
 
     at('遇到他國');
-    const scout = idleVillager(c);
-    issue(c, { type: 'move', player: 0, villager: scout.id, tile: s.tiles.findIndex((x, i) => TERRAIN[x.terrain].land && hexDistance(s, i, t.neighbourTile) === 3) });
-    play(c, 120, () => t.step?.title !== '遇到他國');
+    // Exploring three tiles towards the neighbour is enough to see its territory.
+    const start = s.players[0].startTile;
+    expect(hexDistance(s, start, t.neighbourTile)).toBe(8);
+    let explored = 0;
+    for (let k = 0; k < 6 && t.step?.title === '遇到他國'; k++) {
+      const next = s.tiles
+        .map((_, i) => i)
+        .filter((i) => TERRAIN[s.tiles[i].terrain].land && s.players[0].knowledge[i] === 0 && canExploreTile(s, 0, i))
+        .sort((a, b) => hexDistance(s, a, t.neighbourTile) - hexDistance(s, b, t.neighbourTile) || a - b)[0];
+      issue(c, { type: 'explore', player: 0, villager: idleVillager(c).id, tile: next });
+      play(c, 40, () => s.players[0].knowledge[next] === 1);
+      explored++;
+      play(c, 2);
+    }
+    expect(explored).toBeLessThanOrEqual(3);
 
     at('如何外交');
     issue(c, { type: 'diplomacy', player: 0, target: 1, action: 'proposeRelations' });
-    play(c, 5, () => t.step?.title !== '如何外交');
+    // The neighbour accepts and sends an envoy to build its consulate in our land.
+    play(c, 5, () => s.buildings.some((b) => b.owner === 1 && b.type === 'consulate'));
+    const consulate = s.buildings.find((b) => b.owner === 1 && b.type === 'consulate');
+    expect(consulate?.host).toBe(0);
+    expect(s.tiles[consulate!.tile].owner).toBe(0);
+    play(c, 120, () => t.step?.title !== '如何外交');
+    expect(consulate!.progress).toBe(1);
 
     at('訓練士兵');
     const barracks = build(c, 'barracks');

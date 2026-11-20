@@ -57,7 +57,7 @@ src/client/
 src/ui/describe.ts       villagerStatus / activityIcon (also used by renderer icons and the units-on-tile list)
 src/ui/StorePanel.tsx     store contents of a camp/city/warehouse + transport order form
 src/client/orders.ts     withNearestIdle / exploreWithNearestIdle / quickOrder: orders for the nearest idle unit when nothing is selected
-src/client/tutorial.ts   fixed tutorial (seed 777, small map, passive neighbour, 11 steps with `done` checks and resource grants; `controller.tutorial`)
+src/client/tutorial.ts   fixed tutorial (seed 777, small map, passive neighbour 8 tiles away placed via exported `startPlayer`, 11 steps with `done` checks, dynamic `text`, resource grants; neighbour accepts relations and sends an envoy to build a consulate; `controller.tutorial`)
 src/ui/TutorialPanel.tsx tutorial instructions; src/ui/CrisisOverlay.tsx capital-fall decision
 src/ui/ChatLog.tsx       bottom-left log; Enter opens history + input; chat via controller.sendChat (net: {t:'chat'} through server)
 src/ui/Sound.tsx         useGameAudio(controller): SFX via controller.onIssue + relation-status watcher, music mood; SoundButton
@@ -91,6 +91,7 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Loyalty decays when unsupervised; defection = subverted by nearest foreign territory within range, else leaves.
 - Diplomacy statuses: none → establishing (deadline; both consulates needed) → allied; war; cooldowns. `setStatus` keeps `player.atWar` in sync and removes consulates on none/war.
 - While allied (both consulates built), `shareExploration` merges both nations' `knowledge` every second (and once when becoming allied). Knowledge is never reset, so it survives a break-up. Consulates give their owner vision (`visionRadius` 2).
+- Movement pace: `moveSecondsPerTile(state, v)` in jobs.ts — villagers `moveSecondsPerTile / workEfficiency`; land soldiers `combat.soldierMoveSecondsPerTile / soldierSpeed` (no LV speed-up).
 - Combat only between nations with relation status `war`; `attack` command refuses tiles of nations not at war.
 - **Shipping/navy**: `findPath(state, from, to, opts)` — always pass `pathOpts(v)` for units. Land units may board only at own harbors (`harbor` buildings, needs `naval.sailTech`) and land on any coast; `naval` units (navy) use water + own harbors only. Water tiles cost `naval.seaMoveCost`. Ports: placement `coastal`, `requiresTech`. `trainNavy` turns an LV2 soldier into navy at a harbor (`train` order with `navy: true`). In combat only navy attacks at sea (`hit()` refuses if attacker or target tile is water and attacker is not naval); navy uses `navalAttack/navalDefense` modifiers and `unitMaxHp`.
 - Tech tree is linear: each tech has `branch`/`tier` and requires the previous tier of its branch (`techBranches.json` lists branches).

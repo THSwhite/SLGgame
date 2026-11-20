@@ -84,7 +84,7 @@ npm install        # 第一次執行前，安裝套件
 | `independentNations` | 分城獨立後成立的新國家的名字與顏色（依序使用） | 6 組 |
 | `capitalFall` | 主城陷落：抉擇秒數（`decisionSeconds`）、再起後新主城的生命上限比例（`riseHpShare`）、時間到時的預設選擇（`defaultChoice`：`"rise"` 再起／`"surrender"` 投降） | 30 秒、0.5、再起 |
 | `ai.thinkEverySeconds` | AI 多久做一次決定 | 2 |
-| `combat` | 士兵／平民的攻擊力、各等級生命值、恢復速度、地形與駐守的防禦加成、掠奪比例、支援作戰的傷害倍率（`supportDamageMultiplier`）、佔領後建築剩下的生命比例（`captureHpShare`） | 支援 0.5、佔領 0.3，其他見檔案 |
+| `combat` | 士兵／平民的攻擊力、各等級生命值、恢復速度、地形與駐守的防禦加成、掠奪比例、支援作戰的傷害倍率（`supportDamageMultiplier`）、陸軍士兵每格行軍秒數（`soldierMoveSecondsPerTile`，2.5；不受等級加速，國策「輕型」「重型」會影響）、佔領後建築剩下的生命比例（`captureHpShare`） | 支援 0.5、佔領 0.3，其他見檔案 |
 | `victory` | `territorySchedule`：從第幾分鐘起、領土達到多少比例即獲勝（取最新一階）；`timeLimitMinutes`：時間到時領土最多者獲勝 | 20 分 80%、30 分 70%、40 分 60%、50 分 50%；60 分鐘 |
 | `naval` | 航運與海軍：海上每格移動耗費（`seaMoveCost`）、解鎖出海的科技（`sailTech`）、解鎖海軍的科技（`navyTech`）、海軍的訓練秒數／成本／攻擊力／生命值 | 0.8、航運、造艦、40 秒／木材 60／8／150 |
 | `transport` | 物流：工作地點離最近倉儲每遠 1 格，收入的折減係數（收入 × 1 ÷ (1 + 係數 × 距離)）；建造物資每格的運送秒數；運送村民一次能搬多少 | 0.08、1.5 秒、50 |

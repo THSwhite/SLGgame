@@ -6,6 +6,7 @@ import { validateCommand } from '../src/sim/commands';
 import { getRelation, setStatus } from '../src/sim/systems/diplomacy';
 import { defenseMultiplier } from '../src/sim/systems/combat';
 import { territoryThreshold } from '../src/sim/systems/victory';
+import { moveSecondsPerTile } from '../src/sim/systems/jobs';
 import { newVillager } from '../src/sim/state';
 import { addBuilding, exploreAll, ok, run, startAt, setStock, soldier } from './helpers';
 import type { GameState } from '../src/sim/types';
@@ -245,5 +246,23 @@ describe('support from adjacent tiles', () => {
     const before = enemy.hp;
     run(s, 2);
     expect(enemy.hp).toBe(before);
+  });
+});
+
+describe('marching pace', () => {
+  it('land soldiers march at a steady pace slower than villagers, not sped up by LV; policies still apply', () => {
+    const s = twoNations();
+    const civ = newVillager(s, 0, s.players[0].startTile);
+    const lv2civ = newVillager(s, 0, s.players[0].startTile);
+    lv2civ.level = 2;
+    const trooper = soldier(s, 0, s.players[0].startTile);
+    expect(moveSecondsPerTile(s, trooper)).toBe(BALANCE.combat.soldierMoveSecondsPerTile);
+    expect(moveSecondsPerTile(s, trooper)).toBeGreaterThan(moveSecondsPerTile(s, civ));
+    expect(moveSecondsPerTile(s, lv2civ)).toBeLessThan(moveSecondsPerTile(s, civ));
+    s.players[0].policies.push('light');
+    expect(moveSecondsPerTile(s, trooper)).toBeCloseTo(BALANCE.combat.soldierMoveSecondsPerTile / 1.3, 9);
+    const ship = soldier(s, 0, s.players[0].startTile);
+    ship.naval = true;
+    expect(moveSecondsPerTile(s, ship)).toBeLessThan(moveSecondsPerTile(s, trooper));
   });
 });

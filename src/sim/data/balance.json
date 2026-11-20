@@ -88,7 +88,8 @@
     "garrisonDefense": 0.5,
     "plunderShare": 0.5,
     "supportDamageMultiplier": 0.5,
-    "captureHpShare": 0.3
+    "captureHpShare": 0.3,
+    "soldierMoveSecondsPerTile": 2.5
   },
   "victory": {
     "territorySchedule": [

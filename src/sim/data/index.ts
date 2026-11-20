@@ -84,6 +84,8 @@ export interface Balance {
     supportDamageMultiplier: number;
     /** HP share a captured building keeps. */
     captureHpShare: number;
+    /** Land soldiers march at this pace (per tile, before terrain), not sped up by their LV. */
+    soldierMoveSecondsPerTile: number;
   };
   victory: {
     /** From `minute` on, holding `share` of all land wins (latest matching entry applies). */

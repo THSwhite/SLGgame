@@ -361,7 +361,8 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
   }
 }
 
-function startPlayer(state: GameState, player: PlayerId, tile: TileIndex): void {
+/** Found a nation at `tile` (camp, villagers, starting stock). Scenarios may call it directly. */
+export function startPlayer(state: GameState, player: PlayerId, tile: TileIndex): void {
   const p = getPlayer(state, player);
   p.startTile = tile;
   const camp: GameState['buildings'][number] = { id: state.nextEntityId++, type: 'camp', owner: player, tile, progress: 1, hp: BUILDINGS.camp.hp };

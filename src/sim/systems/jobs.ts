@@ -46,8 +46,7 @@ function stepVillager(state: GameState, v: Villager): void {
 
   if (v.path.length > 0) {
     const next = v.path[0];
-    const speed = v.soldier ? getModifiers(getPlayer(state, v.owner)).soldierSpeed : 1;
-    v.moveProgress += (eff * speed) / (BALANCE.moveSecondsPerTile * tps * moveCost(state, next));
+    v.moveProgress += 1 / (moveSecondsPerTile(state, v) * tps * moveCost(state, next));
     if (v.moveProgress >= 1) {
       v.tile = next;
       v.path.shift();
@@ -234,6 +233,18 @@ function stepVillager(state: GameState, v: Villager): void {
       return;
     }
   }
+}
+
+/**
+ * Seconds per tile before terrain. Villagers walk faster or slower with their
+ * work efficiency (level, food, morale); land soldiers keep a steady marching
+ * pace that only policies (soldierSpeed) change; ships use the normal pace.
+ */
+export function moveSecondsPerTile(state: GameState, v: Villager): number {
+  if (v.soldier && !v.naval) {
+    return BALANCE.combat.soldierMoveSecondsPerTile / getModifiers(getPlayer(state, v.owner)).soldierSpeed;
+  }
+  return BALANCE.moveSecondsPerTile / workEfficiency(state, v);
 }
 
 export function runJobs(state: GameState): void {
