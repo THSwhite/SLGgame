@@ -4,6 +4,7 @@ import { BALANCE } from '../sim/data';
 import { consulateOf, getRelation, STATUS_NAMES, tradePerMinute } from '../sim/systems/diplomacy';
 import type { GameState } from '../sim/types';
 import { formatTime } from './describe';
+import { ConfirmButton } from './ConfirmButton';
 import { landShare, nationScore, nextTerritoryStep, territoryThreshold } from '../sim/systems/victory';
 
 export function pendingProposals(state: GameState, me: number): number {
@@ -84,14 +85,9 @@ export function DiplomacyPanel({ controller, state, onClose }: { controller: Gam
               )}
               {rel.status === 'war' && !proposal && <button onClick={() => act(p.id, 'proposePeace')}>提議停戰</button>}
               {rel.status !== 'war' && (
-                <button
-                  className="danger"
-                  onClick={() => {
-                    if (window.confirm(`確定要向 ${p.name} 宣戰嗎？`)) act(p.id, 'declareWar');
-                  }}
-                >
+                <ConfirmButton className="danger" confirmText={`確定向 ${p.name} 宣戰？`} onConfirm={() => act(p.id, 'declareWar')}>
                   宣戰
-                </button>
+                </ConfirmButton>
               )}
             </div>
           </div>

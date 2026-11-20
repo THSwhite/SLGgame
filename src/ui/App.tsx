@@ -19,6 +19,7 @@ import { getRelation } from '../sim/systems/diplomacy';
 import { EndOverlay } from './EndOverlay';
 import { StorePanel } from './StorePanel';
 import { CrisisOverlay } from './CrisisOverlay';
+import { ConfirmButton } from './ConfirmButton';
 import { isSeat } from '../sim/state';
 import { TutorialPanel } from './TutorialPanel';
 import { exploreWithNearestIdle, quickOrder, withNearestIdle } from '../client/orders';
@@ -331,13 +332,12 @@ function TopBar({
         ))}
       </div>
       <SoundButton />
-      <button
-        onClick={() => {
-          if (window.confirm(controller.isNetwork ? '確定要離開這場多人遊戲嗎？你的國家會改由 AI 接手。' : '確定要回到主選單嗎？目前的遊戲不會保存。')) onExit();
-        }}
+      <ConfirmButton
+        confirmText={controller.isNetwork ? '再按一次離開（改由 AI 接手）' : '再按一次回主選單（不保存）'}
+        onConfirm={onExit}
       >
         選單
-      </button>
+      </ConfirmButton>
     </div>
   );
 }

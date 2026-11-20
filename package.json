@@ -10,7 +10,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "server": "node server/server.ts",
-    "serve": "npm run build && node server/server.ts"
+    "serve": "npm run build && node server/server.ts",
+    "build:demo": "tsc --noEmit && vite build --base ./ --outDir dist-demo --mode demo"
   },
   "dependencies": {
     "pixi.js": "^8.23.0",

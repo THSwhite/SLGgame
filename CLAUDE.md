@@ -17,6 +17,7 @@ npm run serve      # build + relay that also serves dist/ (production)
 npm test           # vitest (tests/**/*.test.ts) — must stay green
 npm run typecheck  # tsc --noEmit (includes src, tests, server)
 npm run build
+npm run build:demo # static single-player build (relative paths, VITE_STATIC_DEMO hides multiplayer) for claude.ai pages
 ```
 
 ## Golden rules (do not break)
@@ -152,6 +153,9 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Never play sounds from `src/sim`. UI hooks: `GameController.onIssue(cmd, error)` (set by `useGameAudio`) and a 250 ms watcher on the local player's relations.
 - Browsers need a user gesture first: `audio.unlock()` is called from the menu buttons.
 - New music: add files to `public/audio/music/`, list them in `PLAYLISTS` in `audio.ts`, and credit them in `public/audio/CREDITS.md` (prefer CC0). Re-encode to ~128 kbps (`ffmpeg -i in.mp3 -map_metadata -1 -b:a 128k out.mp3`) to keep the repo small.
+
+## Browser dialogs
+- Never use `window.confirm/alert/prompt` (they do nothing inside claude.ai pages); use `ui/ConfirmButton.tsx` (click twice).
 
 ## Conventions
 - Commit messages: imperative summary + bullet list; development branch per session as instructed by the environment.

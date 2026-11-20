@@ -94,6 +94,10 @@ function Menu({ onSingle, onTutorial, onOnline }: { onSingle: () => void; onTuto
           🎓 新手教學
         </button>
         <h3>多人連線</h3>
+        {import.meta.env.VITE_STATIC_DEMO ? (
+          <p className="hint">這個線上試玩版只能玩單人遊戲和新手教學。多人連線需要自己架設伺服器（<code>npm run serve</code>，詳見 README）。</p>
+        ) : (
+        <>
         <label className="field">
           你的名字
           <input value={name} maxLength={16} placeholder="例如：北方王國" onChange={(e) => setName(e.target.value)} />
@@ -112,6 +116,8 @@ function Menu({ onSingle, onTutorial, onOnline }: { onSingle: () => void; onTuto
           </span>
         </div>
         <p className="hint">多人連線需要先啟動伺服器：<code>npm run server</code>（詳見 README）。</p>
+        </>
+        )}
       </div>
     </div>
   );
