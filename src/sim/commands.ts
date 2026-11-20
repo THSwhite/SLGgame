@@ -3,7 +3,7 @@ import { canAfford, workersAt } from './economy';
 import { deposit, fillStore, initStore, withdraw } from './storage';
 import { hexDistance, neighbors, tilesInRadius } from './hex';
 import { findPath, isWater, pathOpts } from './pathfinding';
-import { getPlayer, logEvent, newVillager } from './state';
+import { buildingById, getPlayer, isSeat, logEvent, newVillager, resetOrders } from './state';
 import { connectsToTerritory, distanceToTerritory, isComplete, recomputeTerritory } from './systems/territory';
 import { researchBlocked } from './systems/research';
 import { resolveCrisis, riseCandidate, type CrisisChoice } from './systems/crisis';
@@ -67,6 +67,11 @@ function isLand(state: GameState, tile: TileIndex): boolean {
 
 function costText(cost: Partial<Record<ResourceType, number>>): string {
   return RESOURCE_TYPES.filter((r) => cost[r]).map((r) => `${RESOURCE_NAMES[r]} ${cost[r]}`).join('、');
+}
+
+/** How many other units hold a slot of `kind` in a building (training, garrison...). */
+function othersAt(state: GameState, building: number, kind: 'train' | 'garrison', except: number): number {
+  return state.villagers.filter((x) => x.id !== except && x.order.kind === kind && x.order.building === building).length;
 }
 
 /**
@@ -220,8 +225,8 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
     if (i !== undefined && !(i >= min && i <= max)) return `人口生產間隔必須在 ${min}～${max} 秒之間`;
     const at = cmd.settings.spawnAt;
     if (at !== undefined && at !== null) {
-      const b = state.buildings.find((x) => x.id === at);
-      if (!b || b.owner !== cmd.player || b.progress < 1 || (b.type !== 'camp' && b.type !== 'city')) return '只能選擇自己的主城或分城';
+      const b = buildingById(state, at);
+      if (!b || b.owner !== cmd.player || b.progress < 1 || !isSeat(b)) return '只能選擇自己的主城或分城';
     }
     return null;
   }
@@ -260,10 +265,10 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
   if (cmd.type === 'trainNavy') {
     if (!v.soldier || v.level < 2) return '只有 LV2 士兵可以訓練成海軍';
     if (!player.researched.includes(BALANCE.naval.navyTech)) return `需要先研究「${TECHS[BALANCE.naval.navyTech]?.name}」`;
-    const b = state.buildings.find((x) => x.id === cmd.building);
+    const b = buildingById(state, cmd.building);
     if (!b || b.owner !== cmd.player || !isComplete(b) || !BUILDINGS[b.type].navalTrainingSlots) return '只能在自己的港口訓練海軍';
     const slots = BUILDINGS[b.type].navalTrainingSlots!;
-    const busy = state.villagers.filter((x) => x.id !== v.id && x.order.kind === 'train' && x.order.building === b.id).length;
+    const busy = othersAt(state, b.id, 'train', v.id);
     if (busy >= slots) return `訓練名額已滿（${slots} 人）`;
     if (!canAfford(player, BALANCE.naval.navy.cost)) return `資源不足（需要 ${costText(BALANCE.naval.navy.cost)}）`;
     if (findPath(state, v.tile, b.tile, pathOpts(v)) === null) return '無法抵達該地塊';
@@ -285,8 +290,8 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
   }
 
   if (cmd.type === 'transport') {
-    const from = state.buildings.find((x) => x.id === cmd.from);
-    const to = state.buildings.find((x) => x.id === cmd.to);
+    const from = buildingById(state, cmd.from);
+    const to = buildingById(state, cmd.to);
     const ok = (b: typeof from) => b && b.owner === cmd.player && b.progress >= 1 && b.store;
     if (!ok(from) || !ok(to)) return '只能在自己的城池或倉庫之間運送';
     if (from!.id === to!.id) return '起點和終點不能相同';
@@ -297,7 +302,7 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
   }
 
   if (cmd.type === 'train' || cmd.type === 'garrison') {
-    const b = state.buildings.find((x) => x.id === cmd.building);
+    const b = buildingById(state, cmd.building);
     if (!b || b.owner !== cmd.player) return '找不到這棟建築';
     if (!isComplete(b)) return '建築還沒蓋好';
     if (findPath(state, v.tile, b.tile, pathOpts(v)) === null) return '無法抵達該地塊';
@@ -305,18 +310,18 @@ export function validateCommand(state: GameState, cmd: Command): string | null {
     if (cmd.type === 'train') {
       if (def.trainingSlots === 0) return `${def.name}不能訓練`;
       if (v.level >= BALANCE.training.maxLevel) return '已經是最高等級';
-      const trainees = state.villagers.filter((x) => x.id !== v.id && x.order.kind === 'train' && x.order.building === b.id).length;
+      const trainees = othersAt(state, b.id, 'train', v.id);
       if (trainees >= def.trainingSlots) return `訓練名額已滿（${def.trainingSlots} 人）`;
       return null;
     }
     if (def.garrisonSlots === 0) return `${def.name}不能駐守`;
-    const stationed = state.villagers.filter((x) => x.id !== v.id && x.order.kind === 'garrison' && x.order.building === b.id).length;
+    const stationed = othersAt(state, b.id, 'garrison', v.id);
     if (stationed >= def.garrisonSlots) return `駐守名額已滿（${def.garrisonSlots} 人）`;
     return null;
   }
 
   if (cmd.type === 'work') {
-    const b = state.buildings.find((x) => x.id === cmd.building);
+    const b = buildingById(state, cmd.building);
     if (!b || b.owner !== cmd.player) return '找不到這棟建築';
     if (findPath(state, v.tile, b.tile, pathOpts(v)) === null) return '無法抵達該地塊';
     if (!isComplete(b)) return null;
@@ -425,16 +430,12 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
   if (cmd.type === 'setSoldier') {
     if (v.soldier !== cmd.soldier) {
       v.soldier = cmd.soldier;
-      v.order = { kind: 'idle' };
-      v.path = [];
-      v.moveProgress = 0;
+      resetOrders(v);
     }
     return null;
   }
   if (cmd.type === 'stop') {
-    v.order = { kind: 'idle' };
-    v.path = [];
-    v.moveProgress = 0;
+    resetOrders(v);
     return null;
   }
 
@@ -452,23 +453,23 @@ export function applyCommand(state: GameState, cmd: Command): string | null {
     target = cmd.tile;
     v.order = { kind: 'construct', building: id };
   } else if (cmd.type === 'transport') {
-    const from = state.buildings.find((x) => x.id === cmd.from)!;
+    const from = buildingById(state, cmd.from)!;
     target = from.tile;
     const amount = Math.min(cmd.amount, BALANCE.transport.carryCapacity);
     v.order = { kind: 'transport', from: cmd.from, to: cmd.to, resource: cmd.resource, amount, stage: 'pickup' };
   } else if (cmd.type === 'trainNavy') {
-    const b = state.buildings.find((x) => x.id === cmd.building)!;
+    const b = buildingById(state, cmd.building)!;
     target = b.tile;
     v.order = { kind: 'train', building: b.id, progress: 0, paid: false, navy: true };
   } else if (cmd.type === 'train' || cmd.type === 'garrison') {
-    const b = state.buildings.find((x) => x.id === cmd.building)!;
+    const b = buildingById(state, cmd.building)!;
     target = b.tile;
     v.order =
       cmd.type === 'train'
         ? { kind: 'train', building: b.id, progress: 0, paid: false }
         : { kind: 'garrison', building: b.id };
   } else if (cmd.type === 'work') {
-    const b = state.buildings.find((x) => x.id === cmd.building)!;
+    const b = buildingById(state, cmd.building)!;
     target = b.tile;
     v.order = isComplete(b) ? { kind: 'work', building: b.id } : { kind: 'construct', building: b.id };
   } else {

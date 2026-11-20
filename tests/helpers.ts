@@ -3,7 +3,8 @@ import { createGame, stepGame, TEST_MAP_SEED } from '../src/sim/game';
 import { BALANCE, TERRAIN } from '../src/sim/data';
 import { hexDistance, tilesInRadius } from '../src/sim/hex';
 import { validateCommand, type Command } from '../src/sim/commands';
-import { Knowledge, type GameState } from '../src/sim/types';
+import { Knowledge, type GameState, type Villager } from '../src/sim/types';
+import { newVillager } from '../src/sim/state';
 import { capitalOf, initStore, refreshStock, storesOf } from '../src/sim/storage';
 import type { ResourceType } from '../src/sim/data';
 
@@ -80,4 +81,13 @@ export function setStock(s: GameState, owner: number, amounts: Partial<Record<Re
     capital.store![r] = v;
   }
   refreshStock(s, s.players[owner]);
+}
+
+/** A fresh LV2 soldier for `owner` standing on `tile`. */
+export function soldier(s: GameState, owner: number, tile: number): Villager {
+  const v = newVillager(s, owner, tile);
+  v.level = 2;
+  v.hp = BALANCE.combat.hp['2'];
+  v.soldier = true;
+  return v;
 }

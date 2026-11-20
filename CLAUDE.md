@@ -102,6 +102,12 @@ Phases: `choosingStart` → `playing` → `ended` (`state.result`). AI picks sta
 - Capital fall (`systems/crisis.ts`): losing the *last* camp while complete branch cities remain sets `player.capitalCrisis` instead of annexing the nation; `capitalDecision` (surrender → `annexNation`; rise → most populous city becomes `camp` with `maxHp = camp.hp × riseHpShare`, villagers outside remaining seats' territory radius go to the conqueror). `runCrisis` applies `capitalFall.defaultChoice` at the deadline; AI decides at once. Building HP caps go through `buildingMaxHp(b)` (state.ts).
 - Elimination: no villagers or no complete territory building. Victory: conquest / territory share from `victory.territorySchedule` (`territoryThreshold`, none before the first step) / at `timeLimitMinutes` the largest land share (ties: `nationScore`).
 
+## Shared helpers (use these instead of re-writing the logic)
+- `state.ts`: `transferVillager(state, v, to, {loyalty, resentment})` — the only way a villager changes nation (disarms, clears navy/orders, hands cargo to the new owner); `resetOrders(v)`; `buildingById(state, id)`; `isSeat(b)` (camp or city); `newVillager`, `makePlayer`, `unitMaxHp`, `buildingMaxHp`.
+- `hex.ts`: `byDistanceTo(grid, tile)` (sort tiles) and `byDistanceOf(grid, tile)` (sort things with `tile`/`id`) — deterministic tie-breaks built in.
+- `pathfinding.ts`: `isWater`, `pathOpts(v)`; `storage.ts`: `deposit` / `withdraw` / `refreshStock`.
+- Tests: `tests/helpers.ts` (`startAt`, `run`, `ok`, `addBuilding`, `setStock`, `soldier`, `exploreAll`, ...).
+
 ## How to add things
 - **Balance tweak**: edit JSON only.
 - **New tech/policy**: add to `tech.json`/`policies.json`; effects must be keys of `DEFAULT_MODIFIERS`. New effect key ⇒ add default in `modifiers.ts` and apply it where relevant.

@@ -2,7 +2,7 @@ import { BALANCE } from '../data';
 import { hexDistance } from '../hex';
 import { getModifiers } from '../modifiers';
 import { nextRandom } from '../rng';
-import { getPlayer, logEvent } from '../state';
+import { getPlayer, logEvent, transferVillager } from '../state';
 import type { GameState, Villager } from '../types';
 import { buildingVisionRadius, isActive } from './territory';
 
@@ -62,12 +62,7 @@ export function runLoyalty(state: GameState): void {
       const target = getPlayer(state, to);
       logEvent(state, from.id, `村民 #${v.id} 被 ${target.name} 策反了！`);
       logEvent(state, to, `來自 ${from.name} 的村民 #${v.id} 投靠了我們`);
-      v.owner = to;
-      v.order = { kind: 'idle' };
-      v.path = [];
-      v.moveProgress = 0;
-      v.soldier = false;
-      v.loyalty = cfg.afterDefection;
+      transferVillager(state, v, to, { loyalty: cfg.afterDefection, resentment: v.resentment });
     } else if (to === null) {
       logEvent(state, from.id, `村民 #${v.id} 長期脫離管轄，獨立離開了國家`);
       state.villagers = state.villagers.filter((x) => x !== v);

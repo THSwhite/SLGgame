@@ -1,6 +1,6 @@
 import { BALANCE, BUILDINGS, TECHS, TERRAIN, type BuildingType, type ResourceType } from '../data';
 import { applyCommand, canExploreTile, validatePlacement, type Command } from '../commands';
-import { hexDistance, tilesInRadius } from '../hex';
+import { byDistanceOf, byDistanceTo, hexDistance, tilesInRadius } from '../hex';
 import { adjacentForests, hasFreshWaterNearby, incomePerMinute, workersAt } from '../economy';
 import { secondsToTicks } from '../state';
 import { foodConsumptionPerMinute } from '../systems/food';
@@ -141,7 +141,7 @@ class Brain {
     for (const radius of [12, 18]) {
       const tile = tilesInRadius(this.state, this.me.startTile, radius)
         .filter((t) => TERRAIN[this.state.tiles[t].terrain].land && this.me.knowledge[t] === Knowledge.Unknown && canExploreTile(this.state, this.me.id, t))
-        .sort((a, b) => hexDistance(this.state, a, v.tile) - hexDistance(this.state, b, v.tile) || a - b)[0];
+        .sort(byDistanceTo(this.state, v.tile))[0];
       if (tile !== undefined) return this.issue({ type: 'explore', player: this.me.id, villager: v.id, tile });
     }
     return false;
@@ -240,7 +240,7 @@ class Brain {
       const capital = state.buildings.find((b) => b.owner === e && b.type === 'camp');
       if (capital) tiles.push(capital.tile);
     }
-    return [...new Set(tiles)].sort((a, b) => hexDistance(state, a, from) - hexDistance(state, b, from) || a - b);
+    return [...new Set(tiles)].sort(byDistanceTo(state, from));
   }
 
   /** Train a couple of warships when possible and send them after enemies seen at sea. */
@@ -256,7 +256,7 @@ class Brain {
     }
     const prey = state.villagers
       .filter((v) => enemies.has(v.owner) && me.visible[v.tile] && !TERRAIN[state.tiles[v.tile].terrain].land)
-      .sort((a, b) => hexDistance(state, a.tile, port.tile) - hexDistance(state, b.tile, port.tile) || a.id - b.id)[0];
+      .sort(byDistanceOf(state, port.tile))[0];
     for (const ship of navies) {
       if (ship.order.kind !== 'idle' || ship.path.length > 0) continue;
       if (prey) this.issue({ type: 'attack', player: me.id, villager: ship.id, tile: prey.tile });
@@ -299,7 +299,7 @@ class Brain {
     const rally = state.tiles
       .map((_, i) => i)
       .filter((i) => state.tiles[i].owner === me.id)
-      .sort((a, b) => hexDistance(state, a, targets[0]) - hexDistance(state, b, targets[0]) || a - b)[0];
+      .sort(byDistanceTo(state, targets[0]))[0];
     if (rally === undefined) return;
     for (const v of home) if (v.tile !== rally) this.issue({ type: 'move', player: me.id, villager: v.id, tile: rally });
   }
@@ -502,7 +502,7 @@ class Brain {
       if (known.length && this.place(v, 'consulate', (t) => -hexDistance(state, t, me.startTile), known)) return true;
       const target = theirLand
         .filter((i) => me.knowledge[i] === Knowledge.Unknown)
-        .sort((a, b) => hexDistance(state, a, v.tile) - hexDistance(state, b, v.tile) || a - b)[0];
+        .sort(byDistanceTo(state, v.tile))[0];
       if (target !== undefined && this.issue({ type: 'explore', player: me.id, villager: v.id, tile: target })) return true;
     }
 

@@ -1,5 +1,5 @@
 import { BUILDINGS, TERRAIN, type ResourceType } from '../sim/data';
-import { colOf, hexDistance, rowOf, tilesInRadius } from '../sim/hex';
+import { byDistanceTo, colOf, hexDistance, rowOf, tilesInRadius } from '../sim/hex';
 import { findPath } from '../sim/pathfinding';
 import { capitalOf, fillStore } from '../sim/storage';
 import { getRelation } from '../sim/systems/diplomacy';
@@ -80,7 +80,7 @@ export class Tutorial {
         st.tiles
           .map((_, i) => i)
           .filter((i) => st.players[PLAYER].knowledge[i] === 1 && st.tiles[i].deposits.some((d) => d.resource === 'wood'))
-          .sort((a, b) => hexDistance(st, a, start) - hexDistance(st, b, start) || a - b)[0] ?? start
+          .sort(byDistanceTo(st, start))[0] ?? start
       );
     };
     const rel = () => getRelation(controller.state, PLAYER, NEIGHBOUR);

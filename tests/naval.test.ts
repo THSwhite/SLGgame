@@ -5,8 +5,8 @@ import { validateCommand } from '../src/sim/commands';
 import { findPath, isWater } from '../src/sim/pathfinding';
 import { getRelation, setStatus } from '../src/sim/systems/diplomacy';
 import { newVillager } from '../src/sim/state';
-import { addBuilding, exploreAll, ok, run, setStock, startAt } from './helpers';
-import type { GameState, Villager } from '../src/sim/types';
+import { addBuilding, exploreAll, ok, run, setStock, startAt, soldier } from './helpers';
+import type { GameState } from '../src/sim/types';
 
 const land = (s: GameState, i: number) => TERRAIN[s.tiles[i].terrain].land;
 
@@ -27,13 +27,6 @@ function otherShore(s: GameState): number {
   return t;
 }
 
-function soldier(s: GameState, owner: number, tile: number): Villager {
-  const v = newVillager(s, owner, tile);
-  v.level = 2;
-  v.hp = BALANCE.combat.hp['2'];
-  v.soldier = true;
-  return v;
-}
 
 describe('linear tech tree', () => {
   it('every tech after the first tier requires the previous one in its branch', () => {

@@ -8,8 +8,8 @@ import { annex, addDevastation } from '../src/sim/systems/conquest';
 import { workEfficiency } from '../src/sim/economy';
 import { refreshStock } from '../src/sim/storage';
 import { newVillager } from '../src/sim/state';
-import { addBuilding, run, startAt, setStock } from './helpers';
-import type { GameState, Villager } from '../src/sim/types';
+import { addBuilding, run, startAt, setStock, soldier } from './helpers';
+import type { GameState } from '../src/sim/types';
 
 function twoNations(): GameState {
   const s = startAt(undefined, 2);
@@ -23,13 +23,6 @@ function twoNations(): GameState {
   return s;
 }
 
-function soldier(s: GameState, owner: number, tile: number): Villager {
-  const v = newVillager(s, owner, tile);
-  v.level = 2;
-  v.hp = BALANCE.combat.hp['2'];
-  v.soldier = true;
-  return v;
-}
 
 const capital = (s: GameState, owner: number) => s.buildings.find((b) => b.owner === owner && b.type === 'camp')!;
 
@@ -189,5 +182,25 @@ describe('capital falls: surrender or rise again', () => {
   it('decisions are only possible during a crisis', () => {
     const s = twoNations();
     expect(validateCommand(s, { type: 'capitalDecision', player: 1, choice: 'rise' })).toBe('主城沒有陷落');
+  });
+});
+
+describe('villagers changing nation (shared transferVillager)', () => {
+  it('a navy that changes sides becomes a normal villager; carried goods go to the new nation', () => {
+    const s = twoNations();
+    const sailor = soldier(s, 1, capital(s, 1).tile);
+    sailor.naval = true;
+    const porter = newVillager(s, 1, capital(s, 1).tile);
+    porter.cargo = { resource: 'stone', amount: 30 };
+    const stone = s.players[0].stock.stone + s.players[1].stock.stone; // the whole nation is annexed
+    annex(s, capital(s, 1), 1, 0);
+    for (const v of [sailor, porter]) {
+      expect(v.owner).toBe(0);
+      expect(v.naval).toBe(false);
+      expect(v.soldier).toBe(false);
+      expect(v.cargo).toBeNull();
+      expect(v.order.kind).toBe('idle');
+    }
+    expect(s.players[0].stock.stone).toBe(stone + 30);
   });
 });

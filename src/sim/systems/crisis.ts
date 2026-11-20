@@ -1,6 +1,6 @@
 import { BALANCE, BUILDINGS } from '../data';
 import { hexDistance } from '../hex';
-import { getPlayer, logEvent } from '../state';
+import { getPlayer, isSeat, logEvent, transferVillager } from '../state';
 import type { Building, GameState, Player, PlayerId } from '../types';
 import { annexNation, regionRadius } from './conquest';
 import { isComplete, recomputeTerritory } from './territory';
@@ -19,7 +19,7 @@ export function riseCandidate(state: GameState, player: Player): Building | unde
 /** Villagers that stay when rising again: those inside the land of a remaining capital/branch city. */
 export function keepsVillager(state: GameState, owner: PlayerId, tile: number): boolean {
   return state.buildings.some(
-    (b) => b.owner === owner && (b.type === 'city' || b.type === 'camp') && isComplete(b) && hexDistance(state, b.tile, tile) <= BUILDINGS[b.type].territoryRadius,
+    (b) => b.owner === owner && isSeat(b) && isComplete(b) && hexDistance(state, b.tile, tile) <= BUILDINGS[b.type].territoryRadius,
   );
 }
 
@@ -44,15 +44,7 @@ export function resolveCrisis(state: GameState, player: Player, choice: CrisisCh
   let lost = 0;
   for (const v of state.villagers) {
     if (v.owner !== player.id || keepsVillager(state, player.id, v.tile)) continue;
-    v.owner = conqueror;
-    v.soldier = false;
-    v.naval = false;
-    v.order = { kind: 'idle' };
-    v.path = [];
-    v.moveProgress = 0;
-    v.cargo = null;
-    v.resentment = crisis.resentment;
-    v.loyalty = Math.min(v.loyalty, 100 - crisis.resentment);
+    transferVillager(state, v, conqueror, { loyalty: v.loyalty, resentment: crisis.resentment });
     lost++;
   }
   recomputeTerritory(state);

@@ -1,14 +1,12 @@
 import { BALANCE, BUILDINGS, RESOURCE_NAMES, RESOURCE_TYPES } from '../data';
-import { hexDistance } from '../hex';
-import { getPlayer, logEvent } from '../state';
+import { byDistanceOf, hexDistance } from '../hex';
+import { getPlayer, isSeat, logEvent, transferVillager } from '../state';
 import { emptyStore, refreshStock } from '../storage';
 import type { Building, GameState, PlayerId, TileIndex } from '../types';
 import { isComplete } from './territory';
 
 /** Capitals (camps) and branch cities anchor a "region" that is conquered as a whole. */
-export function isSeat(b: Building): boolean {
-  return b.type === 'camp' || b.type === 'city';
-}
+export { isSeat };
 
 export function regionRadius(b: Building): number {
   return BUILDINGS[b.type].territoryRadius + BALANCE.conquest.regionExtraRadius;
@@ -18,7 +16,7 @@ export function regionRadius(b: Building): number {
 export function seatOf(state: GameState, owner: PlayerId, tile: TileIndex): Building | undefined {
   return state.buildings
     .filter((b) => b.owner === owner && isSeat(b) && isComplete(b) && hexDistance(state, b.tile, tile) <= regionRadius(b))
-    .sort((a, b) => hexDistance(state, a.tile, tile) - hexDistance(state, b.tile, tile) || a.id - b.id)[0];
+    .sort(byDistanceOf(state, tile))[0];
 }
 
 /** Record war damage done to `owner` at `tile` (kills, building damage, destruction). */
@@ -44,16 +42,7 @@ function transfer(state: GameState, from: PlayerId, to: PlayerId, inRegion: (til
     if (b.store) for (const r of RESOURCE_TYPES) goods[r] += b.store[r];
     buildings++;
   }
-  for (const v of people) {
-    v.owner = to;
-    v.soldier = false;
-    v.naval = false;
-    v.order = { kind: 'idle' };
-    v.path = [];
-    v.moveProgress = 0;
-    v.resentment = resentment;
-    v.loyalty = Math.min(v.loyalty, 100 - resentment);
-  }
+  for (const v of people) transferVillager(state, v, to, { loyalty: v.loyalty, resentment });
   refreshStock(state, getPlayer(state, from));
   refreshStock(state, getPlayer(state, to));
   state.mapVersion++;

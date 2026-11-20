@@ -1,5 +1,5 @@
 import { BALANCE, BUILDINGS, RESOURCE_TYPES, type ResourceType } from './data';
-import { hexDistance } from './hex';
+import { byDistanceOf, hexDistance } from './hex';
 import type { Building, GameState, Player, PlayerId, TileIndex } from './types';
 
 /**
@@ -35,7 +35,7 @@ export function storesOf(state: GameState, owner: PlayerId): Building[] {
 
 /** Stores sorted by distance from `tile` (ties: lower id). */
 export function storesByDistance(state: GameState, owner: PlayerId, tile: TileIndex): Building[] {
-  return storesOf(state, owner).sort((a, b) => hexDistance(state, a.tile, tile) - hexDistance(state, b.tile, tile) || a.id - b.id);
+  return storesOf(state, owner).sort(byDistanceOf(state, tile));
 }
 
 export function refreshStock(state: GameState, player: Player): void {

@@ -1,5 +1,6 @@
 import { BALANCE, BUILDINGS, RESOURCE_NAMES, TERRAIN } from '../sim/data';
 import { lacksWorkforce } from '../sim/systems/cities';
+import { buildingById } from '../sim/state';
 import { colOf, rowOf } from '../sim/hex';
 import { Knowledge, type GameState, type Villager } from '../sim/types';
 
@@ -18,7 +19,7 @@ export function villagerStatus(state: GameState, v: Villager): string {
     case 'construct':
     case 'work': {
       const id = o.building;
-      const b = state.buildings.find((x) => x.id === id);
+      const b = buildingById(state, id);
       const name = b ? BUILDINGS[b.type].name : '建築';
       if (o.kind === 'construct') {
         if (travelling) return `前往建造${name}`;
@@ -83,7 +84,7 @@ export function activityIcon(state: GameState, v: Villager): string {
       return '🔨';
     case 'work': {
       const id = o.building;
-      const b = state.buildings.find((x) => x.id === id);
+      const b = buildingById(state, id);
       return (b && WORK_ICONS[b.type]) ?? '🔧';
     }
     case 'train':

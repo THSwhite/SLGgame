@@ -1,7 +1,7 @@
 import { BALANCE, BUILDINGS } from '../data';
 import { hexDistance, tilesInRadius } from '../hex';
 import { nextRandom } from '../rng';
-import { makePlayer } from '../state';
+import { makePlayer, transferVillager } from '../state';
 import { fillStore, refreshStock } from '../storage';
 import { addRelationsFor, getRelation } from './diplomacy';
 import { recomputeTerritory } from './territory';
@@ -105,15 +105,7 @@ export function declareIndependence(state: GameState, city: Building): void {
   // The city keeps what it had stored, plus a little to get going.
   fillStore(state, city, BALANCE.branchCity.independenceStartingStock);
   refreshStock(state, parent);
-  for (const v of people) {
-    v.owner = id;
-    v.soldier = false;
-    v.order = { kind: 'idle' };
-    v.path = [];
-    v.moveProgress = 0;
-    v.loyalty = BALANCE.loyalty.max;
-    v.resentment = 0;
-  }
+  for (const v of people) transferVillager(state, v, id, { loyalty: BALANCE.loyalty.max, resentment: 0 });
   recomputeTerritory(state);
   for (const p of state.players) {
     logEvent(state, p.id, p.id === parent.id

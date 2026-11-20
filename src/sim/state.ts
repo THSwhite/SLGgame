@@ -1,5 +1,6 @@
 import { BALANCE, BUILDINGS } from './data';
-import { Knowledge, type AIPersonality, type GameState, type Player, type PlayerId, type TileIndex, type Villager } from './types';
+import { Knowledge, type AIPersonality, type Building, type GameState, type Player, type PlayerId, type TileIndex, type Villager } from './types';
+import { deposit } from './storage';
 
 export const MAX_EVENTS = 100;
 
@@ -84,4 +85,38 @@ export function makePlayer(
 /** Max HP of a building (some buildings have a reduced cap). */
 export function buildingMaxHp(b: { type: keyof typeof BUILDINGS; maxHp?: number }): number {
   return b.maxHp ?? BUILDINGS[b.type].hp;
+}
+
+export function buildingById(state: GameState, id: number | null | undefined): Building | undefined {
+  return id === null || id === undefined ? undefined : state.buildings.find((b) => b.id === id);
+}
+
+/** Capitals and branch cities: the seats that anchor regions, storage and population. */
+export function isSeat(b: Building): boolean {
+  return b.type === 'camp' || b.type === 'city';
+}
+
+/** Drop the current job and any movement in progress. */
+export function resetOrders(v: Villager): void {
+  v.order = { kind: 'idle' };
+  v.path = [];
+  v.moveProgress = 0;
+}
+
+/**
+ * A villager changes nation (conquest, defection, independence...): disarmed,
+ * no job, and goods they carry go to the new nation. The one place to update
+ * when villagers gain new per-nation state.
+ */
+export function transferVillager(state: GameState, v: Villager, to: PlayerId, mood: { loyalty: number; resentment: number }): void {
+  if (v.cargo) {
+    deposit(state, to, v.tile, v.cargo.resource, v.cargo.amount);
+    v.cargo = null;
+  }
+  v.owner = to;
+  v.soldier = false;
+  v.naval = false;
+  resetOrders(v);
+  v.resentment = mood.resentment;
+  v.loyalty = Math.min(mood.loyalty, BALANCE.loyalty.max - mood.resentment);
 }

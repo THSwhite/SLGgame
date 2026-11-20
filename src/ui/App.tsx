@@ -19,6 +19,7 @@ import { getRelation } from '../sim/systems/diplomacy';
 import { EndOverlay } from './EndOverlay';
 import { StorePanel } from './StorePanel';
 import { CrisisOverlay } from './CrisisOverlay';
+import { isSeat } from '../sim/state';
 import { TutorialPanel } from './TutorialPanel';
 import { exploreWithNearestIdle, quickOrder, withNearestIdle } from '../client/orders';
 import { storageCapacity, storesOf } from '../sim/storage';
@@ -393,7 +394,7 @@ function ManagementPanel({ controller, state, onClose }: { controller: GameContr
         >
           <option value="">主城</option>
           {state.buildings
-            .filter((b) => b.owner === me.id && b.progress >= 1 && (b.type === 'camp' || b.type === 'city'))
+            .filter((b) => b.owner === me.id && b.progress >= 1 && isSeat(b))
             .map((b) => (
               <option key={b.id} value={b.id}>
                 {BUILDINGS[b.type].name} #{b.id}（糧食 {Math.floor(b.store?.food ?? 0)}）
@@ -546,7 +547,7 @@ function BuildingInfo({ controller, state, tile }: { controller: GameController;
       ) : (
         <>
           {def.popCap > 0 && <div>人口上限 +{def.popCap}</div>}
-          {(b.type === 'city' || b.type === 'camp') && (b.devastation ?? 0) >= 1 && (
+          {isSeat(b) && (b.devastation ?? 0) >= 1 && (
             <div className="neg">戰火破壞程度 {Math.round(b.devastation ?? 0)}：被攻佔時，當地居民會帶著同等的怨恨</div>
           )}
           {b.type === 'city' && (

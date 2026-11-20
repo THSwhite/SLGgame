@@ -82,3 +82,14 @@ export function neighborInDir(grid: GridSize, index: number, dir: number): numbe
   const r = row + dr;
   return inBounds(grid, c, r) ? toIndex(grid, c, r) : -1;
 }
+
+/** Sort comparator: tiles nearest to `target` first (ties: lower index). */
+export function byDistanceTo(grid: GridSize, target: number) {
+  return (a: number, b: number) => hexDistance(grid, a, target) - hexDistance(grid, b, target) || a - b;
+}
+
+/** Sort comparator: things (units, buildings) nearest to `target` first (ties: lower id). */
+export function byDistanceOf(grid: GridSize, target: number) {
+  return (a: { tile: number; id: number }, b: { tile: number; id: number }) =>
+    hexDistance(grid, a.tile, target) - hexDistance(grid, b.tile, target) || a.id - b.id;
+}

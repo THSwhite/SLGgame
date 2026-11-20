@@ -1,7 +1,7 @@
 import { BALANCE, BUILDINGS, RESOURCE_TYPES, TERRAIN, type ResourceType } from './data';
 import { neighbors } from './hex';
 import { getModifiers, type Modifiers } from './modifiers';
-import { getPlayer } from './state';
+import { buildingById, getPlayer } from './state';
 import type { Building, GameState, Player, Villager } from './types';
 import { alliedCount, tradePerMinute } from './systems/diplomacy';
 import { depositTarget, transportFactor } from './storage';
@@ -95,7 +95,7 @@ export function villagerRate(state: GameState, v: Villager): Rates {
     out[r] = gatherRate(getPlayer(state, v.owner), r) * eff * deliveryFactor(state, v.owner, v.tile, r);
   } else if (v.order.kind === 'work') {
     const id = v.order.building;
-    const b = state.buildings.find((x) => x.id === id);
+    const b = buildingById(state, id);
     if (b) {
       const r = buildingRatePerWorker(state, b);
       for (const k of RESOURCE_TYPES) if (r[k] > 0) out[k] = r[k] * eff * deliveryFactor(state, v.owner, b.tile, k);
@@ -121,7 +121,7 @@ export function researchPerMinute(state: GameState, player: Player): number {
   for (const v of state.villagers) {
     if (v.owner !== player.id || v.order.kind !== 'work' || v.path.length > 0) continue;
     const id = v.order.building;
-    const b = state.buildings.find((x) => x.id === id);
+    const b = buildingById(state, id);
     if (b) total += researchRatePerWorker(state, b) * workEfficiency(state, v) * 60;
   }
   return total;

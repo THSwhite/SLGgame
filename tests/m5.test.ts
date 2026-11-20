@@ -7,8 +7,8 @@ import { getRelation, setStatus } from '../src/sim/systems/diplomacy';
 import { defenseMultiplier } from '../src/sim/systems/combat';
 import { territoryThreshold } from '../src/sim/systems/victory';
 import { newVillager } from '../src/sim/state';
-import { addBuilding, exploreAll, ok, run, startAt, setStock } from './helpers';
-import type { GameState, Villager } from '../src/sim/types';
+import { addBuilding, exploreAll, ok, run, startAt, setStock, soldier } from './helpers';
+import type { GameState } from '../src/sim/types';
 
 function twoNations(): GameState {
   const s = startAt(undefined, 2);
@@ -25,13 +25,6 @@ function war(s: GameState) {
   setStatus(s, getRelation(s, 0, 1), 'war');
 }
 
-function soldier(s: GameState, owner: number, tile: number): Villager {
-  const v = newVillager(s, owner, tile);
-  v.level = 2;
-  v.hp = BALANCE.combat.hp['2'];
-  v.soldier = true;
-  return v;
-}
 
 /** A plain (non-rough) land tile outside everyone's territory. */
 function neutralTile(s: GameState, rough = false): number {

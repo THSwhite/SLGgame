@@ -1,6 +1,6 @@
 import { BALANCE, BUILDINGS } from '../data';
 import { incomePerMinute } from '../economy';
-import { logEvent, newVillager, secondsToTicks } from '../state';
+import { isSeat, logEvent, newVillager, secondsToTicks } from '../state';
 import { capitalOf, storageCapacity, storesOf, withdraw } from '../storage';
 import { getModifiers } from '../modifiers';
 import type { GameState, Player } from '../types';
@@ -42,7 +42,7 @@ export function granaryFull(state: GameState, player: Player): boolean {
 /** Where new villagers appear: the chosen capital/branch city, else the capital. */
 export function spawnTile(state: GameState, player: Player): number {
   const chosen = state.buildings.find(
-    (b) => b.id === player.management.spawnAt && b.owner === player.id && b.progress >= 1 && (b.type === 'camp' || b.type === 'city'),
+    (b) => b.id === player.management.spawnAt && b.owner === player.id && b.progress >= 1 && isSeat(b),
   );
   return (chosen ?? capitalOf(state, player.id))?.tile ?? player.startTile;
 }
